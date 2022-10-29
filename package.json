@@ -1,0 +1,12 @@
+{
+  "name": "AR_Demo",
+  "uuid": "d0934211-58b0-4bbb-89d7-948c2bd5cd25",
+  "version": "3.6.1",
+  "creator": {
+    "version": "3.6.1"
+  },
+  "dependencies": {
+    "@uppy/core": "^3.0.4",
+    "@uppy/webcam": "^3.2.1"
+  }
+}
