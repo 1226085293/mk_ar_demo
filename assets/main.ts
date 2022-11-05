@@ -22,6 +22,21 @@ export class main extends Component {
 	private _image = new cc.ImageAsset();
 	/* ------------------------------- 生命周期 ------------------------------- */
 	async onLoad() {
+		// https://docs.opencv.org/4.x/d9/dab/tutorial_homography.html
+		// https://scottsuhy.com/2021/02/01/image-alignment-feature-based-in-opencv-js-javascript/
+		// https://forum.opencv.org/t/opencv-js-support-for-findhomography/1126/19
+		// https://docs.opencv.org/4.x/d9/dab/tutorial_homography.html
+		// https://answers.opencv.org/questions/scope:all/sort:activity-desc/page:1/query:js/
+
+		// let img1 = cv.imread(this.camera_sprite.spriteFrame?.texture["image"].data);
+		// let img1_gray = new cv.Mat();
+		// let orb = new cv.ORB(500);
+		// let kp = new cv.KeyPointVector();
+		// let descriptors1 = new cv.Mat();
+
+		// cv.cvtColor(img1, img1_gray, cv.COLOR_BGR2GRAY);
+		// orb.detectAndCompute(img1_gray, new cv.Mat(), kp, descriptors1);
+
 		this._h5_canvas = document.createElement("canvas");
 		this._h5_video = document.createElement("video");
 
@@ -29,39 +44,22 @@ export class main extends Component {
 		this._h5_video.setAttribute("muted", "");
 		this._h5_video.setAttribute("playsinline", "");
 
-		this._h5_canvas.width = this._h5_video.width = cc.screen.windowSize.width;
-		this._h5_canvas.height = this._h5_video.height = cc.screen.windowSize.height;
+		// this._h5_canvas.width = this._h5_video.width = cc.screen.windowSize.width;
+		// this._h5_canvas.height = this._h5_video.height = cc.screen.windowSize.height;
 
-		// ios 需要使用 https
-		if (!self.navigator.mediaDevices) {
-			return;
-		}
-
+		// // ios 需要使用 https
+		// if (!self.navigator.mediaDevices) {
+		// 	return;
+		// }
 
 		// let img1 = cv.imread(this.mark_image.data);
-		// let query_img_bw = new cv.Mat();
-		// cv.cvtColor(img1, query_img_bw, cv.COLOR_BGR2GRAY);
-		// let orb = new cv.ORB();
+		// let img1_gray = new cv.Mat();
+		// let orb = new cv.ORB(500);
 		// let kp = new cv.KeyPointVector();
-		// // 检测图像中的关键点。
-		// orb.detect(query_img_bw, kp);
-		// let matcher = new cv.BFMatcher();
+		// let descriptors1 = new cv.Mat();
 
-		let img1 = cv.imread(this.mark_image.data);
-		let img1_bw = new cv.Mat();
-		cv.cvtColor(img1, img1_bw, cv.COLOR_BGR2GRAY);
-		img1 = img1_bw;
-
-		let orb = new cv.ORB();
-		let kp = new cv.KeyPointVector();
-		let descriptors1 = new cv.Mat();
-		orb.detectAndCompute(img1, new cv.Mat(), kp, descriptors1);
-
-
-		/** 匹配器 */
-		let matcher = new cv.BFMatcher();
-		/** 匹配结果 */
-		let matches = new cv.DMatchVector();
+		// cv.cvtColor(img1, img1_gray, cv.COLOR_BGR2GRAY);
+		// orb.detectAndCompute(img1_gray, new cv.Mat(), kp, descriptors1);
 
 		// let query_img_bw = new cv.Mat();
 		// cv.cvtColor(img1, query_img_bw, cv.COLOR_BGR2GRAY);
@@ -90,26 +88,28 @@ export class main extends Component {
 					this.camera_sprite.spriteFrame!.texture = new_texture;
 					this.camera_sprite.markForUpdateRenderData();
 
+					// let img2 = cv.imread(this.mark_image.data);
+					// let img2_gray = new cv.Mat();
+					// let orb2 = new cv.ORB(500);
+					// let kp2 = new cv.KeyPointVector();
+					// let descriptors2 = new cv.Mat();
 
-					let img2 = cv.imread(this.mark_image.data);
-					let img2_bw = new cv.Mat();
-					cv.cvtColor(img2, img2_bw, cv.COLOR_BGR2GRAY);
-					img2 = img2_bw;
-					let orb2 = new cv.ORB();
-					let kp2 = new cv.KeyPointVector();
-					let descriptors2 = new cv.Mat();
-					orb2.detectAndCompute(img2, new cv.Mat(), kp2, descriptors2);
+					// cv.cvtColor(img2, img2_gray, cv.COLOR_BGR2GRAY);
+					// orb2.detectAndCompute(img2_gray, new cv.Mat(), kp2, descriptors2);
 
-					matcher.match(descriptors1, descriptors2, matches);
-					
-					let points1 = new cv.PointVector();
-					let points2 = new cv.PointVector();
-					try {
-						let H = cv.findHomography(points1, points2, cv.RANSAC);
-						cc.log("成功匹配", H);
-					} catch (e) {
+					// /** 匹配器 */
+					// let matcher = new cv.BFMatcher();
+					// /** 匹配结果 */
+					// let matches = new cv.DMatchVector();
+					// matcher.match(descriptors1, descriptors2, matches);
 
-					}
+					// let points1 = new cv.PointVector();
+					// let points2 = new cv.PointVector();
+					// try {
+					// 	let H = cv.findHomography(points1, points2, cv.RANSAC);
+					// 	cc.log("成功匹配", H);
+					// } catch (e) {}
+
 					// let img2 = cv.imread(this._h5_image);
 					// let query_img_bw2 = new cv.Mat();
 					// cv.cvtColor(img2, query_img_bw2, cv.COLOR_BGR2GRAY);
