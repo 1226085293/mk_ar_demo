@@ -7,156 +7,237 @@ const { ccclass, property } = _decorator;
 @ccclass("main")
 export class main extends Component {
 	/* --------------- 属性 --------------- */
-	/** 摄像机输出 */
-	@property({ displayName: "摄像机输出", type: cc.Sprite })
-	camera_sprite: cc.Sprite = null!;
+	@property({ displayName: "参考图", type: cc.Sprite })
+	reference_image: cc.Sprite = null!;
 
-	@property({ displayName: "标记图", type: cc.ImageAsset })
-	mark_image: cc.ImageAsset = null!;
+	@property({ displayName: "对齐图", type: cc.Sprite })
+	alignment_image: cc.Sprite = null!;
+
+	@property({ displayName: "输出图", type: cc.Sprite })
+	output_image: cc.Sprite = null!;
+
+	@property({ displayName: "绘图组件", type: cc.Graphics })
+	graphics: cc.Graphics = null!;
 	/* --------------- private --------------- */
-	/** 初始化状态 */
-	private _init_b = false;
-	private _h5_canvas!: HTMLCanvasElement;
-	private _h5_image = new Image();
-	private _h5_video!: HTMLVideoElement;
-	private _image = new cc.ImageAsset();
 	/* ------------------------------- 生命周期 ------------------------------- */
 	async onLoad() {
-		// https://docs.opencv.org/4.x/d9/dab/tutorial_homography.html
 		// https://scottsuhy.com/2021/02/01/image-alignment-feature-based-in-opencv-js-javascript/
+		// https://docs.opencv.org/4.x/d9/dab/tutorial_homography.html
 		// https://forum.opencv.org/t/opencv-js-support-for-findhomography/1126/19
 		// https://docs.opencv.org/4.x/d9/dab/tutorial_homography.html
 		// https://answers.opencv.org/questions/scope:all/sort:activity-desc/page:1/query:js/
-
 		// let img1 = cv.imread(this.camera_sprite.spriteFrame?.texture["image"].data);
 		// let img1_gray = new cv.Mat();
 		// let orb = new cv.ORB(500);
 		// let kp = new cv.KeyPointVector();
 		// let descriptors1 = new cv.Mat();
 
-		// cv.cvtColor(img1, img1_gray, cv.COLOR_BGR2GRAY);
-		// orb.detectAndCompute(img1_gray, new cv.Mat(), kp, descriptors1);
+		/** 参考图 */
+		let img = cv.imread(this.reference_image.spriteFrame?.texture["image"].data);
+		/** 对齐图 */
+		let img2 = cv.imread(this.alignment_image.spriteFrame?.texture["image"].data);
+		/** 参考图灰度 */
+		let img_gray = new cv.Mat();
+		/** 对齐图灰度 */
+		let img2_gray = new cv.Mat();
+		/** 参考图描述符 */
+		let descriptors = new cv.Mat();
+		/** 对齐图描述符 */
+		let descriptors2 = new cv.Mat();
+		/** 参考图关键点 */
+		let key_points = new cv.KeyPointVector();
+		/** 对齐图关键点 */
+		let key_points2 = new cv.KeyPointVector();
 
-		this._h5_canvas = document.createElement("canvas");
-		this._h5_video = document.createElement("video");
-
-		this._h5_video.setAttribute("autoplay", "");
-		this._h5_video.setAttribute("muted", "");
-		this._h5_video.setAttribute("playsinline", "");
-
-		// this._h5_canvas.width = this._h5_video.width = cc.screen.windowSize.width;
-		// this._h5_canvas.height = this._h5_video.height = cc.screen.windowSize.height;
-
-		// // ios 需要使用 https
-		// if (!self.navigator.mediaDevices) {
-		// 	return;
-		// }
-
-		// let img1 = cv.imread(this.mark_image.data);
-		// let img1_gray = new cv.Mat();
-		// let orb = new cv.ORB(500);
-		// let kp = new cv.KeyPointVector();
-		// let descriptors1 = new cv.Mat();
-
-		// cv.cvtColor(img1, img1_gray, cv.COLOR_BGR2GRAY);
-		// orb.detectAndCompute(img1_gray, new cv.Mat(), kp, descriptors1);
-
-		// let query_img_bw = new cv.Mat();
-		// cv.cvtColor(img1, query_img_bw, cv.COLOR_BGR2GRAY);
-		// let orb = new cv.ORB();
-		// let kp = new cv.KeyPointVector();
-		// // 检测图像中的关键点。
-		// orb.detect(query_img_bw, kp);
-		// let matcher = new cv.BFMatcher();
-
-		self.navigator.mediaDevices
-			.getUserMedia({
-				video: {
-					facingMode: "environment",
-				},
-			})
-			.then(async (stream) => {
-				this._h5_video.srcObject = stream;
-				this._h5_video.play();
-				this._init_b = true;
-
-				this._h5_image.onload = () => {
-					// HTMLImageElement 转 cc.ImageAsset
-					this._image.reset(this._h5_image);
-					let new_texture = new cc.Texture2D();
-					new_texture.image = this._image;
-					this.camera_sprite.spriteFrame!.texture = new_texture;
-					this.camera_sprite.markForUpdateRenderData();
-
-					// let img2 = cv.imread(this.mark_image.data);
-					// let img2_gray = new cv.Mat();
-					// let orb2 = new cv.ORB(500);
-					// let kp2 = new cv.KeyPointVector();
-					// let descriptors2 = new cv.Mat();
-
-					// cv.cvtColor(img2, img2_gray, cv.COLOR_BGR2GRAY);
-					// orb2.detectAndCompute(img2_gray, new cv.Mat(), kp2, descriptors2);
-
-					// /** 匹配器 */
-					// let matcher = new cv.BFMatcher();
-					// /** 匹配结果 */
-					// let matches = new cv.DMatchVector();
-					// matcher.match(descriptors1, descriptors2, matches);
-
-					// let points1 = new cv.PointVector();
-					// let points2 = new cv.PointVector();
-					// try {
-					// 	let H = cv.findHomography(points1, points2, cv.RANSAC);
-					// 	cc.log("成功匹配", H);
-					// } catch (e) {}
-
-					// let img2 = cv.imread(this._h5_image);
-					// let query_img_bw2 = new cv.Mat();
-					// cv.cvtColor(img2, query_img_bw2, cv.COLOR_BGR2GRAY);
-					// let orb2 = new cv.ORB();
-					// let kp2 = new cv.KeyPointVector();
-					// // 检测图像中的关键点。
-					// orb2.detect(query_img_bw2, kp2);
-					// let dmatch = new cv.DMatchVector();
-					// let matches = matcher.match(kp, kp2, dmatch);
-				};
-			})
-			.catch((error) => {
-				console.log(error.code, error.message, error);
-			});
-
-		// let orb = new cv.ORB();
-		// let kp = new cv.KeyPointVector();
-		// orb.detect(imgMat, kp);
-		// console.log("kp", kp);
-
-		// let imgMat = cv.imread(imgElement);
-		// let orb = new cv.ORB();
-		// let kp = orb.detect(imgMat, "");
-		// console.log("kp", kp);
-
-		// // image 和 mask 的类型为 cv.Mat
-		// // orb.detect(image, keyPoints, mask);
-		// // orb.compute(image, keyPoints, descriptors);
-
-		// keyPoints.delete();
-		// descriptors.delete();
-		// orb.delete();
-	}
-
-	update() {
-		if (!this._init_b) {
-			return;
+		// 初始化灰度图
+		{
+			cv.cvtColor(img, img_gray, cv.COLOR_BGRA2GRAY);
+			cv.cvtColor(img2, img2_gray, cv.COLOR_BGRA2GRAY);
 		}
-		this.updateTexture();
-	}
-	/* ------------------------------- 功能 ------------------------------- */
-	updateTexture() {
-		/** 绘制到 canvas */
-		this._h5_canvas
-			.getContext("2d")!
-			.drawImage(this._h5_video, 0, 0, this._h5_canvas.width, this._h5_canvas.height);
-		/** canvas 转 base64 */
-		this._h5_image.src = this._h5_canvas.toDataURL("image/png");
+
+		// 检测特征和计算描述符
+		{
+			/** 关键点检测器和描述符提取器 */
+			let orb = new cv.AKAZE(); // ORB  AKAZE
+
+			orb.detectAndCompute(img_gray, new cv.Mat(), key_points, descriptors);
+			orb.detectAndCompute(img2_gray, new cv.Mat(), key_points2, descriptors2);
+
+			cc.log(
+				" 参考图关键点数量 ",
+				key_points.size(),
+				" 对齐图关键点数量 ",
+				key_points2.size()
+			);
+			// 绘制关键点，坐标系不同需转换
+			if (false) {
+				/** 绘制间隔 */
+				let for_interval_n = 2;
+				// 参考图
+				{
+					this.graphics.moveTo(
+						key_points.get(0).pt.x,
+						this.reference_image.node.height - key_points.get(0).pt.y
+					);
+					for (
+						let k_n = 1, len_n = key_points.size();
+						k_n < len_n;
+						k_n += for_interval_n
+					) {
+						this.graphics.circle(
+							key_points.get(k_n).pt.x,
+							this.reference_image.node.height - key_points.get(k_n).pt.y,
+							6
+						);
+						this.graphics.stroke();
+						this.graphics.moveTo(
+							key_points.get(k_n).pt.x,
+							this.reference_image.node.height - key_points.get(k_n).pt.y
+						);
+					}
+				}
+				// 对齐图
+				{
+					this.graphics.moveTo(
+						key_points2.get(0).pt.x + this.reference_image.node.width,
+						this.alignment_image.node.height - key_points2.get(0).pt.y
+					);
+					for (
+						let k_n = 1, len_n = key_points2.size();
+						k_n < len_n;
+						k_n += for_interval_n
+					) {
+						this.graphics.circle(
+							key_points2.get(k_n).pt.x + this.reference_image.node.width,
+							this.alignment_image.node.height - key_points2.get(k_n).pt.y,
+							6
+						);
+						this.graphics.stroke();
+						this.graphics.moveTo(
+							key_points2.get(k_n).pt.x + this.reference_image.node.width,
+							this.alignment_image.node.height - key_points2.get(k_n).pt.y
+						);
+					}
+				}
+			}
+		}
+
+		/** 匹配结果筛选 */
+		let match_result_filter = new cv.DMatchVector();
+
+		// 匹配特征
+		{
+			/** 描述符匹配距离缩放率，越小则匹配越精准 */
+			let match_dist_scaling_n = 0.7;
+			/** 匹配器 */
+			let bf_matcher = new cv.BFMatcher();
+			/** 匹配结果 */
+			let match_result = new cv.DMatchVectorVector();
+
+			// 匹配
+			bf_matcher.knnMatch(descriptors, descriptors2, match_result, 2);
+
+			for (let k_n = 0, len_n = match_result.size(); k_n < len_n; ++k_n) {
+				let match = match_result.get(k_n);
+				let match_point = match.get(0);
+				let match_point2 = match.get(1);
+				if (match_point.distance <= match_point2.distance * match_dist_scaling_n) {
+					match_result_filter.push_back(match_point);
+				}
+			}
+
+			// 绘制匹配结果
+			if (false) {
+				// queryIdx: 参考图描述符下标
+				// trainIdx: 对齐图描述符下标
+				this.graphics.moveTo(
+					key_points.get(match_result_filter.get(0).queryIdx).pt.x,
+					this.reference_image.node.height -
+						key_points.get(match_result_filter.get(0).queryIdx).pt.y
+				);
+				for (let k_n = 0, len_n = match_result_filter.size(); k_n < len_n; ++k_n) {
+					// 随机绘制颜色
+					this.graphics.strokeColor = [
+						cc.Color.WHITE,
+						cc.Color.GRAY,
+						cc.Color.BLACK,
+						cc.Color.TRANSPARENT,
+						cc.Color.RED,
+						cc.Color.GREEN,
+						cc.Color.BLUE,
+						cc.Color.CYAN,
+						cc.Color.MAGENTA,
+						cc.Color.YELLOW,
+					][Math.floor(Math.random() * 9)];
+					this.graphics.lineTo(
+						key_points2.get(match_result_filter.get(k_n).trainIdx).pt.x +
+							this.reference_image.node.width,
+						this.reference_image.node.height -
+							key_points2.get(match_result_filter.get(k_n).trainIdx).pt.y
+					);
+					this.graphics.stroke();
+					if (k_n + 1 < len_n) {
+						this.graphics.moveTo(
+							key_points.get(match_result_filter.get(k_n + 1).queryIdx).pt.x,
+							this.reference_image.node.height -
+								key_points.get(match_result_filter.get(k_n + 1).queryIdx).pt.y
+						);
+					}
+				}
+			}
+		}
+
+		// 输出结果图
+		{
+			/** 结果图数据 */
+			let image_final_result = new cv.Mat();
+
+			let points: any[] = [];
+			let points2: any[] = [];
+			for (let i = 0; i < match_result_filter.size(); i++) {
+				points.push(key_points.get(match_result_filter.get(i).queryIdx).pt.x);
+				points.push(key_points.get(match_result_filter.get(i).queryIdx).pt.y);
+				points2.push(key_points2.get(match_result_filter.get(i).trainIdx).pt.x);
+				points2.push(key_points2.get(match_result_filter.get(i).trainIdx).pt.y);
+			}
+			let mat1 = new cv.Mat(points.length, 1, cv.CV_32FC2);
+			let mat2 = new cv.Mat(points2.length, 1, cv.CV_32FC2);
+			mat1.data32F.set(points);
+			mat2.data32F.set(points2);
+
+			/** 单应性矩阵 */
+			let h = cv.findHomography(mat1, mat2, cv.RANSAC);
+
+			if (h.empty()) {
+				alert("homography matrix empty!");
+				return;
+			} else {
+				console.log("h:", h);
+				console.log("[", h.data64F[0], ",", h.data64F[1], ",", h.data64F[2]);
+				console.log("", h.data64F[3], ",", h.data64F[4], ",", h.data64F[5]);
+				console.log("", h.data64F[6], ",", h.data64F[7], ",", h.data64F[8], "]");
+			}
+
+			// 扭曲图像
+			cv.warpPerspective(img, image_final_result, h, img2.size());
+
+			// 输出到图片
+			function transformUint8ArrayToBase64(array) {
+				var binary = "";
+				for (var len = array.byteLength, i = 0; i < len; i++) {
+					binary += String.fromCharCode(array[i]);
+				}
+				return window.btoa(binary).replace(/=/g, "");
+			}
+			// var b64encoded = btoa(String.fromCharCode.apply(null, image_final_result.data));
+			let image = new Image();
+			image.src = transformUint8ArrayToBase64(image_final_result.data);
+			let image_asset = new cc.ImageAsset(image);
+			let new_texture = new cc.Texture2D();
+			new_texture.image = image_asset;
+			this.output_image.spriteFrame = new cc.SpriteFrame();
+			this.output_image.spriteFrame!.texture = new_texture;
+			this.output_image.markForUpdateRenderData();
+		}
 	}
 }

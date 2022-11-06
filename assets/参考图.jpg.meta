@@ -11,7 +11,7 @@
     "6c48a": {
       "importer": "texture",
       "uuid": "5e226538-4bc1-4c49-bf80-7064461a7918@6c48a",
-      "displayName": "Morgan-12o",
+      "displayName": "参考图",
       "id": "6c48a",
       "name": "texture",
       "userData": {
@@ -35,7 +35,7 @@
     "f9941": {
       "importer": "sprite-frame",
       "uuid": "5e226538-4bc1-4c49-bf80-7064461a7918@f9941",
-      "displayName": "Morgan-12o",
+      "displayName": "参考图",
       "id": "f9941",
       "name": "spriteFrame",
       "userData": {
