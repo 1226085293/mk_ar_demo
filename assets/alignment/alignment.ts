@@ -4,8 +4,8 @@ import { _decorator, Component, Node } from "cc";
 const cv = self["cv"];
 
 const { ccclass, property } = _decorator;
-@ccclass("main")
-export class main extends Component {
+@ccclass("alignment")
+export class alignment extends Component {
 	/* --------------- 属性 --------------- */
 	@property({ displayName: "参考图", type: cc.Sprite })
 	reference_image: cc.Sprite = null!;
