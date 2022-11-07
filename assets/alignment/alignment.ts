@@ -21,6 +21,10 @@ export class alignment extends Component {
 	/* --------------- private --------------- */
 	/* ------------------------------- 生命周期 ------------------------------- */
 	async start() {
+		// 计算摄像机坐标
+		// https://www.fdxlabs.com/calculate-x-y-z-real-world-coordinates-from-a-single-camera-using-opencv/
+		// https://stackoverflow.com/questions/14444433/calculate-camera-world-position-with-opencv-python
+
 		// https://scottsuhy.com/2021/02/01/image-alignment-feature-based-in-opencv-js-javascript/
 		// https://docs.opencv.org/4.x/d9/dab/tutorial_homography.html
 		// https://forum.opencv.org/t/opencv-js-support-for-findhomography/1126/19
@@ -128,8 +132,8 @@ export class alignment extends Component {
 		// 匹配特征
 		{
 			/** 描述符匹配距离缩放率，越小则匹配越精准 */
-			let match_dist_scaling_n = 0.7;
-			/** 匹配器 */
+			let match_dist_scaling_n = 0.65;
+			/** 蛮力匹配器：该匹配器利用为第一组中检测到的特征计算的描述符与第二组中的所有描述符进行匹配。最后，它返回距离最近的匹配项。 */
 			let bf_matcher = new cv.BFMatcher();
 			/** 匹配结果 */
 			let match_result = new cv.DMatchVectorVector();
@@ -147,7 +151,7 @@ export class alignment extends Component {
 			}
 
 			// 绘制匹配结果
-			if (false) {
+			if (true) {
 				// queryIdx: 参考图描述符下标
 				// trainIdx: 对齐图描述符下标
 				this.graphics.moveTo(
