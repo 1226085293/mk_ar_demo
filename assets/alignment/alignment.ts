@@ -20,7 +20,7 @@ export class alignment extends Component {
 	graphics: cc.Graphics = null!;
 	/* --------------- private --------------- */
 	/* ------------------------------- 生命周期 ------------------------------- */
-	async onLoad() {
+	async start() {
 		// https://scottsuhy.com/2021/02/01/image-alignment-feature-based-in-opencv-js-javascript/
 		// https://docs.opencv.org/4.x/d9/dab/tutorial_homography.html
 		// https://forum.opencv.org/t/opencv-js-support-for-findhomography/1126/19
@@ -172,14 +172,14 @@ export class alignment extends Component {
 					this.graphics.lineTo(
 						key_points2.get(match_result_filter.get(k_n).trainIdx).pt.x +
 							this.reference_image.node.width,
-						this.reference_image.node.height -
+						this.alignment_image.node.height -
 							key_points2.get(match_result_filter.get(k_n).trainIdx).pt.y
 					);
 					this.graphics.stroke();
 					if (k_n + 1 < len_n) {
 						this.graphics.moveTo(
 							key_points.get(match_result_filter.get(k_n + 1).queryIdx).pt.x,
-							this.reference_image.node.height -
+							this.alignment_image.node.height -
 								key_points.get(match_result_filter.get(k_n + 1).queryIdx).pt.y
 						);
 					}
@@ -195,49 +195,47 @@ export class alignment extends Component {
 			let points: any[] = [];
 			let points2: any[] = [];
 			for (let i = 0; i < match_result_filter.size(); i++) {
-				points.push(key_points.get(match_result_filter.get(i).queryIdx).pt.x);
-				points.push(key_points.get(match_result_filter.get(i).queryIdx).pt.y);
-				points2.push(key_points2.get(match_result_filter.get(i).trainIdx).pt.x);
-				points2.push(key_points2.get(match_result_filter.get(i).trainIdx).pt.y);
+				points.push(key_points2.get(match_result_filter.get(i).trainIdx).pt.x);
+				points.push(key_points2.get(match_result_filter.get(i).trainIdx).pt.y);
+				points2.push(key_points.get(match_result_filter.get(i).queryIdx).pt.x);
+				points2.push(key_points.get(match_result_filter.get(i).queryIdx).pt.y);
 			}
-			let mat1 = new cv.Mat(points.length, 1, cv.CV_32FC2);
+			let mat = new cv.Mat(points.length, 1, cv.CV_32FC2);
 			let mat2 = new cv.Mat(points2.length, 1, cv.CV_32FC2);
-			mat1.data32F.set(points);
+			mat.data32F.set(points);
 			mat2.data32F.set(points2);
 
 			/** 单应性矩阵 */
-			let h = cv.findHomography(mat1, mat2, cv.RANSAC);
+			let h = cv.findHomography(mat, mat2, cv.RANSAC);
 
 			if (h.empty()) {
 				alert("homography matrix empty!");
 				return;
 			} else {
-				console.log("h:", h);
-				console.log("[", h.data64F[0], ",", h.data64F[1], ",", h.data64F[2]);
-				console.log("", h.data64F[3], ",", h.data64F[4], ",", h.data64F[5]);
-				console.log("", h.data64F[6], ",", h.data64F[7], ",", h.data64F[8], "]");
+				console.log("匹配成功");
+				// console.log("h:", h);
+				// console.log("[", h.data64F[0], ",", h.data64F[1], ",", h.data64F[2]);
+				// console.log("", h.data64F[3], ",", h.data64F[4], ",", h.data64F[5]);
+				// console.log("", h.data64F[6], ",", h.data64F[7], ",", h.data64F[8], "]");
 			}
 
 			// 扭曲图像
-			cv.warpPerspective(img, image_final_result, h, img2.size());
+			cv.warpPerspective(img2, image_final_result, h, img.size());
 
-			// 输出到图片
-			function transformUint8ArrayToBase64(array) {
-				var binary = "";
-				for (var len = array.byteLength, i = 0; i < len; i++) {
-					binary += String.fromCharCode(array[i]);
-				}
-				return window.btoa(binary).replace(/=/g, "");
+			// 绘制到 sprite
+			{
+				let canvas = document.createElement("canvas");
+				let sprite_frame = new cc.SpriteFrame();
+				let image_asset = new cc.ImageAsset();
+				let new_texture = new cc.Texture2D();
+
+				// 绘制到 canvas
+				cv.imshow(canvas, image_final_result);
+				image_asset.reset(canvas);
+				new_texture.image = image_asset;
+				sprite_frame.texture = new_texture;
+				this.output_image.spriteFrame = sprite_frame;
 			}
-			// var b64encoded = btoa(String.fromCharCode.apply(null, image_final_result.data));
-			let image = new Image();
-			image.src = transformUint8ArrayToBase64(image_final_result.data);
-			let image_asset = new cc.ImageAsset(image);
-			let new_texture = new cc.Texture2D();
-			new_texture.image = image_asset;
-			this.output_image.spriteFrame = new cc.SpriteFrame();
-			this.output_image.spriteFrame!.texture = new_texture;
-			this.output_image.markForUpdateRenderData();
 		}
 	}
 }
