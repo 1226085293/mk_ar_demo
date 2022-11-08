@@ -1,7 +1,7 @@
 import * as cc from "cc";
 import { _decorator, Component, Node } from "cc";
 // import * as cv from "./opencv";
-const cv = self["cv"];
+// const cv = self["cv"];
 
 const { ccclass, property } = _decorator;
 @ccclass("alignment")
@@ -19,11 +19,17 @@ export class alignment extends Component {
 	@property({ displayName: "绘图组件", type: cc.Graphics })
 	graphics: cc.Graphics = null!;
 	/* --------------- private --------------- */
+	/** 关键点检测器 */
+	private _keypoint_detector = new cv.AKAZE();
+	/** 特征提取器 */
+	private _feature_extractor = new cv.AKAZE();
 	/* ------------------------------- 生命周期 ------------------------------- */
 	async start() {
 		// 计算摄像机坐标
+		// https://ahmetozlu.medium.com/marker-less-augmented-reality-by-opencv-and-opengl-531b2af0a130
 		// https://www.fdxlabs.com/calculate-x-y-z-real-world-coordinates-from-a-single-camera-using-opencv/
 		// https://stackoverflow.com/questions/14444433/calculate-camera-world-position-with-opencv-python
+		// https://opg.optica.org/ao/abstract.cfm?uri=ao-60-35-10901
 
 		// https://scottsuhy.com/2021/02/01/image-alignment-feature-based-in-opencv-js-javascript/
 		// https://docs.opencv.org/4.x/d9/dab/tutorial_homography.html
@@ -60,12 +66,13 @@ export class alignment extends Component {
 		}
 
 		// 检测特征和计算描述符
+		// https://ieeexplore.ieee.org/document/8346440
 		{
-			/** 关键点检测器和描述符提取器 */
-			let orb = new cv.AKAZE(); // ORB  AKAZE
+			this._extract_features(img_gray, key_points, descriptors);
+			this._extract_features(img2_gray, key_points2, descriptors2);
 
-			orb.detectAndCompute(img_gray, new cv.Mat(), key_points, descriptors);
-			orb.detectAndCompute(img2_gray, new cv.Mat(), key_points2, descriptors2);
+			// orb.detectAndCompute(img_gray, new cv.Mat(), key_points, descriptors);
+			// orb.detectAndCompute(img2_gray, new cv.Mat(), key_points2, descriptors2);
 
 			cc.log(
 				" 参考图关键点数量 ",
@@ -132,7 +139,7 @@ export class alignment extends Component {
 		// 匹配特征
 		{
 			/** 描述符匹配距离缩放率，越小则匹配越精准 */
-			let match_dist_scaling_n = 0.65;
+			let match_dist_scaling_n = 0.75;
 			/** 蛮力匹配器：该匹配器利用为第一组中检测到的特征计算的描述符与第二组中的所有描述符进行匹配。最后，它返回距离最近的匹配项。 */
 			let bf_matcher = new cv.BFMatcher();
 			/** 匹配结果 */
@@ -241,5 +248,27 @@ export class alignment extends Component {
 				this.output_image.spriteFrame = sprite_frame;
 			}
 		}
+	}
+
+	/**
+	 * 关键点检测 & 特征提取
+	 * @param feature_
+	 * @param img_
+	 * @param key_points_
+	 * @param descriptors_
+	 */
+	private _extract_features(img_: any, key_points_: any, descriptors_: any): boolean {
+		// 检查关键点
+		this._keypoint_detector.detect(img_, key_points_);
+		if (!key_points_.size()) {
+			return false;
+		}
+		// 计算描述符
+		this._feature_extractor.compute(img_, key_points_, descriptors_);
+		if (!descriptors_.empty()) {
+			return false;
+		}
+
+		return true;
 	}
 }

@@ -6,6 +6,7 @@
     "version": "3.6.1"
   },
   "dependencies": {
+    "@techstark/opencv-js": "^4.6.0-release.1",
     "@uppy/core": "^3.0.4",
     "@uppy/webcam": "^3.2.1"
   }
