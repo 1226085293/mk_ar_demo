@@ -1,7 +1,5 @@
 import * as cc from "cc";
 import { _decorator, Component, Node } from "cc";
-// import * as cv from "./opencv";
-// const cv = self["cv"];
 
 const { ccclass, property } = _decorator;
 @ccclass("alignment")
@@ -25,8 +23,11 @@ export class alignment extends Component {
 	private _feature_extractor = new cv.AKAZE();
 	/* ------------------------------- 生命周期 ------------------------------- */
 	async start() {
+		// 参考流程：https://ahmetozlu.medium.com/marker-less-augmented-reality-by-opencv-and-opengl-531b2af0a130
+
 		// 计算摄像机坐标
-		// https://ahmetozlu.medium.com/marker-less-augmented-reality-by-opencv-and-opengl-531b2af0a130
+		// 相机校准和 3D 重建：https://docs.opencv.org/3.0-beta/modules/calib3d/doc/camera_calibration_and_3d_reconstruction.html#
+		// opencv 论坛（新）：https://forum.opencv.org/
 		// https://www.fdxlabs.com/calculate-x-y-z-real-world-coordinates-from-a-single-camera-using-opencv/
 		// https://stackoverflow.com/questions/14444433/calculate-camera-world-position-with-opencv-python
 		// https://opg.optica.org/ao/abstract.cfm?uri=ao-60-35-10901
@@ -59,7 +60,7 @@ export class alignment extends Component {
 		/** 对齐图关键点 */
 		let key_points2 = new cv.KeyPointVector();
 
-		// 初始化灰度图
+		// 初始化灰度图，减少计算量
 		{
 			cv.cvtColor(img, img_gray, cv.COLOR_BGRA2GRAY);
 			cv.cvtColor(img2, img2_gray, cv.COLOR_BGRA2GRAY);
@@ -80,7 +81,7 @@ export class alignment extends Component {
 				" 对齐图关键点数量 ",
 				key_points2.size()
 			);
-			// 绘制关键点，坐标系不同需转换
+			// 绘制关键点，y 向下需转换
 			if (false) {
 				/** 绘制间隔 */
 				let for_interval_n = 2;
