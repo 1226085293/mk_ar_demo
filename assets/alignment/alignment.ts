@@ -1,5 +1,6 @@
 import * as cc from "cc";
 import { _decorator, Component, Node } from "cc";
+import camera_position from "./camera_position";
 
 const { ccclass, property } = _decorator;
 @ccclass("alignment")
@@ -42,6 +43,15 @@ export class alignment extends Component {
 		// let orb = new cv.ORB(500);
 		// let kp = new cv.KeyPointVector();
 		// let descriptors1 = new cv.Mat();
+		let camera_position_a = new camera_position({
+			detector: new cv.AKAZE(),
+			extractor: new cv.AKAZE(),
+			img: this.reference_image.spriteFrame?.texture["image"].data,
+			matcher: new cv.BFMatcher(),
+			match_ratio: 0.7,
+		});
+		camera_position_a.match(this.alignment_image.spriteFrame?.texture["image"].data);
+		return;
 
 		/** 参考图 */
 		let img = cv.imread(this.reference_image.spriteFrame?.texture["image"].data);
