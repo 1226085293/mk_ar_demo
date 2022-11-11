@@ -1,6 +1,6 @@
 import * as cc from "cc";
 import { _decorator, Component, Node } from "cc";
-import camera_position from "./camera_position";
+import camera_position, { camera_position_ } from "./camera_position";
 
 const { ccclass, property } = _decorator;
 @ccclass("alignment")
@@ -12,16 +12,17 @@ export class alignment extends Component {
 	@property({ displayName: "对齐图", type: cc.Sprite })
 	alignment_image: cc.Sprite = null!;
 
+	@property({ displayName: "对齐图2", type: cc.Sprite })
+	alignment_image2: cc.Sprite = null!;
+
 	@property({ displayName: "输出图", type: cc.Sprite })
 	output_image: cc.Sprite = null!;
 
+	@property({ displayName: "输出图2", type: cc.Sprite })
+	output_image2: cc.Sprite = null!;
+
 	@property({ displayName: "绘图组件", type: cc.Graphics })
 	graphics: cc.Graphics = null!;
-	/* --------------- private --------------- */
-	/** 关键点检测器 */
-	private _keypoint_detector = new cv.AKAZE();
-	/** 特征提取器 */
-	private _feature_extractor = new cv.AKAZE();
 	/* ------------------------------- 生命周期 ------------------------------- */
 	async start() {
 		// 参考流程：https://ahmetozlu.medium.com/marker-less-augmented-reality-by-opencv-and-opengl-531b2af0a130
@@ -38,19 +39,35 @@ export class alignment extends Component {
 		// https://forum.opencv.org/t/opencv-js-support-for-findhomography/1126/19
 		// https://docs.opencv.org/4.x/d9/dab/tutorial_homography.html
 		// https://answers.opencv.org/questions/scope:all/sort:activity-desc/page:1/query:js/
-		// let img1 = cv.imread(this.camera_sprite.spriteFrame?.texture["image"].data);
-		// let img1_gray = new cv.Mat();
-		// let orb = new cv.ORB(500);
-		// let kp = new cv.KeyPointVector();
-		// let descriptors1 = new cv.Mat();
+
 		let camera_position_a = new camera_position({
 			detector: new cv.AKAZE(),
 			extractor: new cv.AKAZE(),
 			img: this.reference_image.spriteFrame?.texture["image"].data,
 			matcher: new cv.BFMatcher(),
-			match_ratio: 0.7,
+			match_ratio: 0.75,
+			node_as: [this.reference_image.node, this.alignment_image.node],
+			graphics: this.graphics,
+			draw_type_n: 0, //camera_position_.draw.match_point,
 		});
-		camera_position_a.match(this.alignment_image.spriteFrame?.texture["image"].data);
+		console.time("匹配1");
+		camera_position_a.match(
+			this.alignment_image.spriteFrame?.texture["image"].data,
+			this.output_image
+		);
+		console.timeEnd("匹配1");
+		console.time("匹配2");
+		camera_position_a.match(
+			this.alignment_image2.spriteFrame?.texture["image"].data,
+			this.output_image2
+		);
+		console.timeEnd("匹配2");
+		console.time("匹配3");
+		camera_position_a.match(
+			this.alignment_image.spriteFrame?.texture["image"].data,
+			this.output_image
+		);
+		console.timeEnd("匹配3");
 		return;
 
 		/** 参考图 */
@@ -94,7 +111,7 @@ export class alignment extends Component {
 			// 绘制关键点，y 向下需转换
 			if (false) {
 				/** 绘制间隔 */
-				let for_interval_n = 2;
+				let for_interval_n = 1;
 				// 参考图
 				{
 					this.graphics.moveTo(
@@ -167,7 +184,7 @@ export class alignment extends Component {
 					match_result_filter.push_back(match_point);
 				}
 			}
-
+			cc.log("match result2", match_result_filter.size());
 			// 绘制匹配结果
 			if (true) {
 				// queryIdx: 参考图描述符下标
@@ -269,13 +286,14 @@ export class alignment extends Component {
 	 * @param descriptors_
 	 */
 	private _extract_features(img_: any, key_points_: any, descriptors_: any): boolean {
+		let detector = new cv.AKAZE();
 		// 检查关键点
-		this._keypoint_detector.detect(img_, key_points_);
+		detector.detect(img_, key_points_);
 		if (!key_points_.size()) {
 			return false;
 		}
 		// 计算描述符
-		this._feature_extractor.compute(img_, key_points_, descriptors_);
+		detector.compute(img_, key_points_, descriptors_);
 		if (!descriptors_.empty()) {
 			return false;
 		}
