@@ -18,7 +18,6 @@ namespace _camera_position {
 		node?: cc.Node;
 
 		reset(img_: img_t): void {
-			this._clear();
 			// 图
 			this.img = cv.imread(img_);
 			this.img_gray = new cv.Mat();
@@ -29,7 +28,7 @@ namespace _camera_position {
 		}
 
 		/** 清理 */
-		private _clear(): void {
+		delete(): void {
 			if (!this.img) {
 				return;
 			}
@@ -50,8 +49,6 @@ class camera_position {
 	constructor(init_: camera_position_.init_config) {
 		this._init_data = new camera_position_.init_config(init_);
 
-		this._img.reset(this._init_data.img);
-		this._extract_features(this._img);
 		// 绘制节点
 		this._img.node = this._init_data.node_as![0];
 		this._img_temp.node = this._init_data.node_as![1];
@@ -70,6 +67,8 @@ class camera_position {
 	private _homography: any;
 	/** 扭曲图数据 */
 	private _image_final_result: any;
+	/** 销毁列表 */
+	private _delete_as: any[] = [];
 	/* ------------------------------- 功能 ------------------------------- */
 	/** 清理数据 */
 	clear(): void {
@@ -88,12 +87,14 @@ class camera_position {
 
 		console.time("reset");
 		// 初始化图
+		this._img.reset(this._init_data.img);
 		this._img_temp.reset(img_);
+		this._delete_as.push(this._img, this._img_temp);
 		console.timeEnd("reset");
 
 		// 特征提取
 		console.time("_extract_features");
-		// this._extract_features(this._img);
+		this._extract_features(this._img);
 		this._extract_features(this._img_temp);
 		console.timeEnd("_extract_features");
 
@@ -189,19 +190,23 @@ class camera_position {
 
 	/**
 	 * 关键点检测 & 特征提取
-	 * - 不能在 detect 再使用 cvtColor，否则会导致计算错误
 	 */
 	private _extract_features(img_: _camera_position.img_data): boolean {
-		if (img_.key_points.size()) {
-			return true;
-		}
+		// if (img_.key_points.size()) {
+		// 	return true;
+		// }
+
+		let detector = new this._init_data.detector();
+		let extractor = new this._init_data.extractor();
+		this._delete_as.push(detector, extractor);
+
 		// 检查关键点
-		this._init_data.detector.detect(img_.img_gray, img_.key_points);
+		detector.detect(img_.img_gray, img_.key_points);
 		if (!img_.key_points.size()) {
 			return false;
 		}
 		// 计算描述符
-		this._init_data.extractor.compute(img_.img_gray, img_.key_points, img_.descriptors);
+		extractor.compute(img_.img_gray, img_.key_points, img_.descriptors);
 		if (img_.descriptors.empty()) {
 			return false;
 		}
@@ -256,13 +261,16 @@ class camera_position {
 		dst_mat.data32F.set(dst_point_ns);
 
 		this._homography = cv.findHomography(src_mat, dst_mat, cv.RANSAC);
+		src_mat.delete();
+		dst_mat.delete();
 	}
 
 	/** 更新匹配结果 */
 	private _update_matching_result(): void {
 		// 暴力匹配
 		if (this._init_data.match_ratio) {
-			this._init_data.matcher.knnMatch(
+			let matcher = new this._init_data.matcher();
+			matcher.knnMatch(
 				this._img.descriptors,
 				this._img_temp.descriptors,
 				this._match_result,
@@ -277,9 +285,13 @@ class camera_position {
 				}
 			}
 		} else {
-			this._init_data.matcher.match(this._img_temp.descriptors, this._match_result_filter);
+			let matcher = new this._init_data.matcher(cv.NORM_HAMMING, true);
+			matcher.match(
+				this._img.descriptors,
+				this._img_temp.descriptors,
+				this._match_result_filter
+			);
 		}
-
 		// 绘制匹配线
 		this._draw_match_line();
 	}
