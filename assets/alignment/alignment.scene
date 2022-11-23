@@ -148,7 +148,7 @@
     "_priority": 1073741824,
     "_fov": 45,
     "_fovAxis": 0,
-    "_orthoHeight": 333.1828442437923,
+    "_orthoHeight": 320,
     "_near": 0,
     "_far": 2000,
     "_color": {
@@ -1130,7 +1130,7 @@
       "a": 255
     },
     "_spriteFrame": {
-      "__uuid__": "c34a465d-4cb2-4e86-a062-825f794e0c40@f9941",
+      "__uuid__": "735221ce-57d2-4980-8c94-a85467b0b35c@f9941",
       "__expectedType__": "cc.SpriteFrame"
     },
     "_type": 0,

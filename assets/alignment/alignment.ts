@@ -38,19 +38,16 @@ export class alignment extends Component {
 		// cv::Ptr<cv::DescriptorExtractor> extractor = new cv::FREAK(false, false),
 		// cv::Ptr<cv::DescriptorMatcher>   matcher   = new cv::BFMatcher(cv::NORM_HAMMING, true),
 
-		// let a = new cv.ORB(1000);
-		// let b = new cv.FREAK(false, false);
-		// let c = new cv.BFMatcher(cv.NORM_HAMMING, true);
 		// AKAZE
 		let camera_position_a = new camera_position({
 			detector: cv.AKAZE,
 			extractor: cv.AKAZE,
 			img: this.reference_image.spriteFrame?.texture["image"].data,
-			matcher: null, //new cv.BFMatcher(),
+			matcher: cv.BFMatcher,
 			match_ratio: 0.8,
 			node_as: [this.reference_image.node, this.alignment_image.node],
 			graphics: this.graphics,
-			draw_type_n: 0, //camera_position_.draw.match_point,
+			draw_type_n: camera_position_.draw.match_point,
 		});
 
 		let count_n = 0;
