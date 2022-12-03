@@ -1,6 +1,6 @@
 import * as cc from "cc";
 
-namespace _camera_position {
+namespace _camera_positioning {
 	/** 图片类型 */
 	export type img_t = HTMLCanvasElement | HTMLImageElement;
 
@@ -18,6 +18,11 @@ namespace _camera_position {
 		node?: cc.Node;
 
 		reset(img_: img_t): void {
+			// 必须先 delete 才能 reset
+			if (this.img) {
+				return;
+			}
+
 			// 图
 			this.img = cv.imread(img_);
 			this.img_gray = new cv.Mat();
@@ -45,20 +50,20 @@ namespace _camera_position {
 }
 
 /** 摄像机定位 */
-class camera_position {
-	constructor(init_: camera_position_.init_config) {
-		this._init_data = new camera_position_.init_config(init_);
+class camera_positioning {
+	constructor(init_: camera_positioning_.init_config) {
+		this._init_data = new camera_positioning_.init_config(init_);
 
 		// 绘制节点
 		this._img.node = this._init_data.node_as![0];
 		this._img_temp.node = this._init_data.node_as![1];
 	}
 	/* --------------- private --------------- */
-	private _init_data!: camera_position_.init_config;
+	private _init_data!: camera_positioning_.init_config;
 	/** 定位图 */
-	private _img = new _camera_position.img_data();
+	private _img = new _camera_positioning.img_data();
 	/** 临时图 */
-	private _img_temp = new _camera_position.img_data();
+	private _img_temp = new _camera_positioning.img_data();
 	/** 匹配结果 */
 	private _match_result: any;
 	/** 匹配结果筛选 */
@@ -69,33 +74,51 @@ class camera_position {
 	private _image_final_result: any;
 	/** 销毁列表 */
 	private _delete_as: any[] = [];
+	/** 定位图匹配点数组 */
+	private _img_temp_match_point_ns: number[] = [];
+	/** 临时图匹配点数组 */
+	private _img_match_point_ns: number[] = [];
 	/* ------------------------------- 功能 ------------------------------- */
-	/** 清理数据 */
-	clear(): void {
-		if (!this._match_result) {
-			return;
-		}
-		this._match_result.delete();
-		this._match_result_filter.delete();
-		this._homography.delete();
-		this._image_final_result?.delete();
+	/** 初始化 */
+	init(): void {
+		this._img.reset(this._init_data.img);
+		this._feature_extraction(this._img);
 	}
 
-	match(img_: _camera_position.img_t, output_image: cc.Sprite): void {
-		this._match_result = new cv.DMatchVectorVector();
-		this._match_result_filter = new cv.DMatchVector();
+	/** 销毁 */
+	destroy(): void {
+		this._img.delete();
+		this._init_data.matcher.delete();
+		this._init_data.knn_matcher.delete();
+		this._init_data.extractor.delete();
+	}
+
+	/** 清理数据 */
+	clear(): void {
+		this._img_temp_match_point_ns.splice(0, this._img_temp_match_point_ns.length);
+		this._img_match_point_ns.splice(0, this._img_match_point_ns.length);
+		while (this._delete_as.length) {
+			this._delete_as.pop().delete();
+		}
+	}
+
+	/** 匹配图像 */
+	match(img_: _camera_positioning.img_t, output_image: cc.Sprite): void {
+		// this._auto_delete(this._img);
+		this._auto_delete(this._img_temp);
+		this._match_result = this._auto_delete(new cv.DMatchVectorVector());
+		this._match_result_filter = this._auto_delete(new cv.DMatchVector());
 
 		console.time("reset");
 		// 初始化图
 		this._img.reset(this._init_data.img);
 		this._img_temp.reset(img_);
-		this._delete_as.push(this._img, this._img_temp);
 		console.timeEnd("reset");
 
 		// 特征提取
 		console.time("_extract_features");
-		this._extract_features(this._img);
-		this._extract_features(this._img_temp);
+		this._feature_extraction(this._img);
+		this._feature_extraction(this._img_temp);
 		console.timeEnd("_extract_features");
 
 		// 获取匹配结果
@@ -112,7 +135,7 @@ class camera_position {
 		console.time("warpPerspective");
 		cv.warpPerspective(
 			this._img_temp.img,
-			(this._image_final_result = new cv.Mat()),
+			(this._image_final_result = this._auto_delete(new cv.Mat())),
 			this._homography,
 			this._img.img.size()
 		);
@@ -138,12 +161,18 @@ class camera_position {
 		// // https://raw.githubusercontent.com/ahmetozlu/open_source_markerless_augmented_reality/master/MarkerlessAR_V2/src/PatternDetector.cpp
 	}
 
+	/** 自动清理数据 */
+	private _auto_delete<T extends { delete: () => void }>(data_: T): T {
+		this._delete_as.push(data_);
+		return data_;
+	}
+
 	/** 绘制匹配线 */
 	private _draw_match_line(): void {
 		// 绘制匹配结果
 		if (
 			this._init_data.graphics &&
-			this._init_data.draw_type_n! & camera_position_.draw.match_point
+			this._init_data.draw_type_n! & camera_positioning_.draw.match_point
 		) {
 			let graphics = this._init_data.graphics;
 
@@ -189,30 +218,26 @@ class camera_position {
 	}
 
 	/**
-	 * 关键点检测 & 特征提取
+	 * 特征提取
 	 */
-	private _extract_features(img_: _camera_position.img_data): boolean {
-		// if (img_.key_points.size()) {
-		// 	return true;
-		// }
-
-		let detector = new this._init_data.detector();
-		let extractor = new this._init_data.extractor();
-		this._delete_as.push(detector, extractor);
-
-		// 检查关键点
-		detector.detect(img_.img_gray, img_.key_points);
-		if (!img_.key_points.size()) {
-			return false;
+	private _feature_extraction(img_: _camera_positioning.img_data): boolean {
+		if (img_.key_points.size()) {
+			return true;
 		}
-		// 计算描述符
-		extractor.compute(img_.img_gray, img_.key_points, img_.descriptors);
-		if (img_.descriptors.empty()) {
+
+		// 检查关键点并计算描述符
+		this._init_data.extractor.detectAndCompute(
+			img_.img_gray,
+			this._auto_delete(new cv.Mat()),
+			img_.key_points,
+			img_.descriptors
+		);
+		if (!img_.key_points.size() || img_.descriptors.empty()) {
 			return false;
 		}
 
 		// 绘制关键点
-		if (img_.node && this._init_data.draw_type_n! & camera_position_.draw.key_point) {
+		if (img_.node && this._init_data.draw_type_n! & camera_positioning_.draw.key_point) {
 			/** 绘图组件 */
 			let graphics: cc.Graphics = img_.node.getComponentInChildren(cc.Graphics)!;
 
@@ -239,65 +264,103 @@ class camera_position {
 
 	/** 计算单应性矩阵 */
 	calculate_homography(): void {
-		let src_point_ns: number[] = [];
-		let dst_point_ns: number[] = [];
-		for (let k_n = 0, len_n = this._match_result_filter.size(); k_n < len_n; ++k_n) {
-			src_point_ns.push(
-				this._img_temp.key_points.get(this._match_result_filter.get(k_n).trainIdx).pt.x
-			);
-			src_point_ns.push(
-				this._img_temp.key_points.get(this._match_result_filter.get(k_n).trainIdx).pt.y
-			);
-			dst_point_ns.push(
-				this._img.key_points.get(this._match_result_filter.get(k_n).queryIdx).pt.x
-			);
-			dst_point_ns.push(
-				this._img.key_points.get(this._match_result_filter.get(k_n).queryIdx).pt.y
-			);
-		}
-		let src_mat = new cv.Mat(src_point_ns.length, 1, cv.CV_32FC2);
-		let dst_mat = new cv.Mat(dst_point_ns.length, 1, cv.CV_32FC2);
-		src_mat.data32F.set(src_point_ns);
-		dst_mat.data32F.set(dst_point_ns);
+		let src_mat = this._auto_delete(
+			new cv.Mat(this._img_temp_match_point_ns.length * 0.5, 1, cv.CV_32FC2)
+		);
+		let dst_mat = this._auto_delete(
+			new cv.Mat(this._img_match_point_ns.length * 0.5, 1, cv.CV_32FC2)
+		);
+		src_mat.data32F.set(this._img_temp_match_point_ns);
+		dst_mat.data32F.set(this._img_match_point_ns);
 
-		this._homography = cv.findHomography(src_mat, dst_mat, cv.RANSAC);
-		src_mat.delete();
-		dst_mat.delete();
+		this._homography = this._auto_delete(cv.findHomography(src_mat, dst_mat, cv.RANSAC));
 	}
 
 	/** 更新匹配结果 */
 	private _update_matching_result(): void {
-		// 暴力匹配
-		if (this._init_data.match_ratio) {
-			let matcher = new this._init_data.matcher();
-			matcher.knnMatch(
-				this._img.descriptors,
-				this._img_temp.descriptors,
-				this._match_result,
-				2
-			);
-			for (let k_n = 0, len_n = this._match_result.size(); k_n < len_n; ++k_n) {
-				let match = this._match_result.get(k_n);
-				let point = match.get(0);
-				let point2 = match.get(1);
-				if (point.distance <= point2.distance * this._init_data.match_ratio) {
-					this._match_result_filter.push_back(point);
+		// 筛选匹配点
+		{
+			let matcher: any;
+			// 暴力匹配
+			if (this._init_data.match_ratio) {
+				matcher = this._init_data.knn_matcher;
+				matcher.knnMatch(
+					this._img.descriptors,
+					this._img_temp.descriptors,
+					this._match_result,
+					2
+				);
+				for (let k_n = 0, len_n = this._match_result.size(); k_n < len_n; ++k_n) {
+					let match = this._match_result.get(k_n);
+					let point = match.get(0);
+					let point2 = match.get(1);
+					if (point.distance <= point2.distance * this._init_data.match_ratio) {
+						this._match_result_filter.push_back(point);
+
+						// 录入数组
+						{
+							this._img_match_point_ns.push(
+								this._img.key_points.get(point.queryIdx).pt.x
+							);
+							this._img_match_point_ns.push(
+								this._img.key_points.get(point.queryIdx).pt.y
+							);
+							this._img_temp_match_point_ns.push(
+								this._img_temp.key_points.get(point.trainIdx).pt.x
+							);
+							this._img_temp_match_point_ns.push(
+								this._img_temp.key_points.get(point.trainIdx).pt.y
+							);
+						}
+					}
 				}
 			}
-		} else {
-			let matcher = new this._init_data.matcher(cv.NORM_HAMMING, true);
-			matcher.match(
-				this._img.descriptors,
-				this._img_temp.descriptors,
-				this._match_result_filter
-			);
+			// 匹配算法
+			else {
+				matcher = this._init_data.matcher;
+				matcher.match(
+					this._img.descriptors,
+					this._img_temp.descriptors,
+					this._match_result_filter
+				);
+
+				// 录入数组
+				{
+					for (
+						let k_n = 0, len_n = this._match_result_filter.size();
+						k_n < len_n;
+						++k_n
+					) {
+						this._img_match_point_ns.push(
+							this._img.key_points.get(this._match_result_filter.get(k_n).queryIdx).pt
+								.x
+						);
+						this._img_match_point_ns.push(
+							this._img.key_points.get(this._match_result_filter.get(k_n).queryIdx).pt
+								.y
+						);
+						this._img_temp_match_point_ns.push(
+							this._img_temp.key_points.get(
+								this._match_result_filter.get(k_n).trainIdx
+							).pt.x
+						);
+						this._img_temp_match_point_ns.push(
+							this._img_temp.key_points.get(
+								this._match_result_filter.get(k_n).trainIdx
+							).pt.y
+						);
+					}
+				}
+			}
+			matcher.clear();
 		}
+
 		// 绘制匹配线
 		this._draw_match_line();
 	}
 }
 
-export namespace camera_position_ {
+export namespace camera_positioning_ {
 	/** 绘制数据 */
 	export enum draw {
 		/** 关键点 */
@@ -312,13 +375,13 @@ export namespace camera_position_ {
 			Object.assign(this, init_);
 		}
 		/** 定位图 */
-		img!: _camera_position.img_t;
-		/** 关键点检测器 */
-		detector: any;
+		img!: _camera_positioning.img_t;
 		/** 特征提取器 */
 		extractor: any;
 		/** 匹配器 */
 		matcher: any;
+		/** 暴力匹配器 */
+		knn_matcher: any;
 		/** 匹配比率（越小越精准，一般为 0.7，不填则不使用 knnMatch） */
 		match_ratio?: number;
 		/** 图片节点（0：定位图，1：临时图、绘制节点下必须存在 Graphics 组件） */
@@ -330,4 +393,4 @@ export namespace camera_position_ {
 	}
 }
 
-export default camera_position;
+export default camera_positioning;

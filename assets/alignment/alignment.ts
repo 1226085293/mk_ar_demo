@@ -1,6 +1,5 @@
 import * as cc from "cc";
 import { _decorator, Component, Node } from "cc";
-import camera_position, { camera_position_ } from "./camera_position";
 
 const { ccclass, property } = _decorator;
 @ccclass("alignment")
@@ -38,27 +37,28 @@ export class alignment extends Component {
 		// cv::Ptr<cv::DescriptorExtractor> extractor = new cv::FREAK(false, false),
 		// cv::Ptr<cv::DescriptorMatcher>   matcher   = new cv::BFMatcher(cv::NORM_HAMMING, true),
 
-		// AKAZE
-		let camera_position_a = new camera_position({
-			detector: cv.AKAZE,
-			extractor: cv.AKAZE,
-			img: this.reference_image.spriteFrame?.texture["image"].data,
-			matcher: cv.BFMatcher,
-			match_ratio: 0.8,
-			node_as: [this.reference_image.node, this.alignment_image.node],
-			graphics: this.graphics,
-			draw_type_n: camera_position_.draw.match_point,
-		});
+		// // AKAZE
+		// let camera_position_a = new camera_positioning({
+		// 	extractor: new cv.AKAZE(),
+		// 	img: this.reference_image.spriteFrame?.texture["image"].data,
+		// 	matcher: new cv.BFMatcher(cv.NORM_HAMMING, true),
+		// 	knn_matcher: new cv.BFMatcher(),
+		// 	match_ratio: 0.8,
+		// 	node_as: [this.reference_image.node, this.alignment_image.node],
+		// 	graphics: thicamera_positionings.graphics,
+		// 	draw_type_n: 0,
+		// });
 
-		let count_n = 0;
-		this.schedule(() => {
-			cc.log("----------------" + count_n++ + "----------------");
-			camera_position_a.match(
-				this.alignment_image.spriteFrame?.texture["image"].data,
-				this.output_image
-			);
-		}, 0);
-		return;
+		// let count_n = 0;
+		// this.schedule(() => {
+		// 	cc.log("----------------" + count_n++ + "----------------");
+		// 	camera_position_a.match(
+		// 		this.alignment_image.spriteFrame?.texture["image"].data,
+		// 		this.output_image
+		// 	);
+		// }, 0);
+		// // camera_position_a.destroy();
+		// return;
 
 		/** 参考图 */
 		let img = cv.imread(this.reference_image.spriteFrame?.texture["image"].data);
@@ -229,8 +229,8 @@ export class alignment extends Component {
 				points2.push(key_points.get(match_result_filter.get(i).queryIdx).pt.x);
 				points2.push(key_points.get(match_result_filter.get(i).queryIdx).pt.y);
 			}
-			let mat = new cv.Mat(points.length, 1, cv.CV_32FC2);
-			let mat2 = new cv.Mat(points2.length, 1, cv.CV_32FC2);
+			let mat = new cv.Mat(points.length * 0.5, 1, cv.CV_32FC2);
+			let mat2 = new cv.Mat(points2.length * 0.5, 1, cv.CV_32FC2);
 			mat.data32F.set(points);
 			mat2.data32F.set(points2);
 
