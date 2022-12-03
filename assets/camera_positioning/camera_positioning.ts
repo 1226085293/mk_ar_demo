@@ -49,5 +49,17 @@ export class camera_positioning extends Component {
 			graphics: this.graphics,
 			draw_type_n: 0,
 		});
+		camera_position_a.init();
+
+		let count_n = 0;
+		this.schedule(() => {
+			cc.log("----------------" + count_n++ + "----------------");
+			camera_position_a.match(
+				this.alignment_image.spriteFrame?.texture["image"].data,
+				this.output_image
+			);
+		}, 0);
+		// camera_position_a.destroy();
+		// return;
 	}
 }

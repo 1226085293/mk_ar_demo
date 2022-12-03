@@ -78,15 +78,20 @@ class tool_camera_positioning {
 	private _img_temp_match_point_ns: number[] = [];
 	/** 临时图匹配点数组 */
 	private _img_match_point_ns: number[] = [];
+	/** 空矩阵 */
+	private _none_mat: any;
 	/* ------------------------------- 功能 ------------------------------- */
 	/** 初始化 */
 	init(): void {
+		this._none_mat = new cv.Mat();
+		this._image_final_result = new cv.Mat();
 		this._img.reset(this._init_data.img);
 		this._feature_extraction(this._img);
 	}
 
 	/** 销毁 */
 	destroy(): void {
+		this._image_final_result.delete();
 		this._img.delete();
 		this._init_data.matcher.delete();
 		this._init_data.knn_matcher.delete();
@@ -104,20 +109,17 @@ class tool_camera_positioning {
 
 	/** 匹配图像 */
 	match(img_: _tool_camera_positioning.img_t, output_image: cc.Sprite): void {
-		// this._auto_delete(this._img);
 		this._auto_delete(this._img_temp);
 		this._match_result = this._auto_delete(new cv.DMatchVectorVector());
 		this._match_result_filter = this._auto_delete(new cv.DMatchVector());
 
 		console.time("reset");
 		// 初始化图
-		this._img.reset(this._init_data.img);
 		this._img_temp.reset(img_);
 		console.timeEnd("reset");
 
 		// 特征提取
 		console.time("_extract_features");
-		this._feature_extraction(this._img);
 		this._feature_extraction(this._img_temp);
 		console.timeEnd("_extract_features");
 
@@ -135,7 +137,7 @@ class tool_camera_positioning {
 		console.time("warpPerspective");
 		cv.warpPerspective(
 			this._img_temp.img,
-			(this._image_final_result = this._auto_delete(new cv.Mat())),
+			this._image_final_result,
 			this._homography,
 			this._img.img.size()
 		);
@@ -228,7 +230,7 @@ class tool_camera_positioning {
 		// 检查关键点并计算描述符
 		this._init_data.extractor.detectAndCompute(
 			img_.img_gray,
-			this._auto_delete(new cv.Mat()),
+			this._none_mat,
 			img_.key_points,
 			img_.descriptors
 		);
