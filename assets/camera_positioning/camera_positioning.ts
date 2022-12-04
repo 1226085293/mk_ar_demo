@@ -39,7 +39,7 @@ export class camera_positioning extends Component {
 		// cv::Ptr<cv::DescriptorMatcher>   matcher   = new cv::BFMatcher(cv::NORM_HAMMING, true),
 
 		// // AKAZE
-		let camera_position_a = new tool_camera_positioning({
+		let positioning = new tool_camera_positioning({
 			extractor: new cv.AKAZE(),
 			img: this.reference_image.spriteFrame?.texture["image"].data,
 			matcher: new cv.BFMatcher(cv.NORM_HAMMING, true),
@@ -49,15 +49,12 @@ export class camera_positioning extends Component {
 			graphics: this.graphics,
 			draw_type_n: 0,
 		});
-		camera_position_a.init();
+		positioning.init();
 
 		let count_n = 0;
 		this.schedule(() => {
 			cc.log("----------------" + count_n++ + "----------------");
-			camera_position_a.match(
-				this.alignment_image.spriteFrame?.texture["image"].data,
-				this.output_image
-			);
+			positioning.calculate(this.alignment_image.spriteFrame?.texture["image"].data);
 		}, 0);
 		// camera_position_a.destroy();
 		// return;

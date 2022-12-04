@@ -64,6 +64,8 @@ class tool_camera_positioning {
 	private _img = new _tool_camera_positioning.img_data();
 	/** 临时图 */
 	private _img_temp = new _tool_camera_positioning.img_data();
+	/** 上次临时图 */
+	private _pre_img_temp: _tool_camera_positioning.img_data | null = null;
 	/** 匹配结果 */
 	private _match_result: any;
 	/** 匹配结果筛选 */
@@ -80,6 +82,14 @@ class tool_camera_positioning {
 	private _img_match_point_ns: number[] = [];
 	/** 空矩阵 */
 	private _none_mat: any;
+	/** 光流跟踪状态 */
+	private _track_status_b = false;
+	/** 匹配点数量 */
+	private _matches_n = 0;
+	/** 定位图定位点 */
+	private _img_pos_mat = new cv.Mat(4, 1, cv.CV_32FC2);
+	/** 临时图定位点 */
+	private _img_temp_pos_mat = new cv.Mat(4, 1, cv.CV_32FC2);
 	/* ------------------------------- 功能 ------------------------------- */
 	/** 初始化 */
 	init(): void {
@@ -87,10 +97,28 @@ class tool_camera_positioning {
 		this._image_final_result = new cv.Mat();
 		this._img.reset(this._init_data.img);
 		this._feature_extraction(this._img);
+
+		// 初始化定位图四角坐标
+		this._img_pos_mat.data32F.set([
+			// 左下
+			0,
+			0,
+			// 右下
+			this._img.img.cols,
+			0,
+			// 右上
+			this._img.img.cols,
+			this._img.img.rows,
+			// 左上
+			0,
+			this._img.img.rows,
+		]);
 	}
 
 	/** 销毁 */
 	destroy(): void {
+		this._img_pos_mat.delete();
+		this._img_temp_pos_mat.delete();
 		this._image_final_result.delete();
 		this._img.delete();
 		this._init_data.matcher.delete();
@@ -100,62 +128,87 @@ class tool_camera_positioning {
 
 	/** 清理数据 */
 	clear(): void {
-		this._img_temp_match_point_ns.splice(0, this._img_temp_match_point_ns.length);
-		this._img_match_point_ns.splice(0, this._img_match_point_ns.length);
 		while (this._delete_as.length) {
 			this._delete_as.pop().delete();
 		}
 	}
 
+	/** 计算 */
+	calculate(img_: _tool_camera_positioning.img_t): void {
+		// 光流
+		if (this._track_status_b) {
+			if (!this._pre_img_temp) {
+				return;
+			}
+			// 初始化图
+			console.time("初始化图");
+			this._img_temp.reset(img_);
+			console.timeEnd("初始化图");
+
+			/** 上次匹配点 */
+			let pre_match_point_mat = new cv.Mat(
+				this._img_match_point_ns.length * 0.5,
+				1,
+				cv.CV_32FC2
+			);
+			pre_match_point_mat.data32F.set(this._img_match_point_ns);
+			/** 当前匹配点 */
+			let curr_point_mat = new cv.Mat();
+			/** 状态 */
+			let status_mat = new cv.Mat();
+			/** 错误 */
+			let error_mat = new cv.Mat();
+			console.time("calcOpticalFlowPyrLK");
+			cv.calcOpticalFlowPyrLK(
+				this._pre_img_temp.img_gray,
+				this._img_temp.img_gray,
+				pre_match_point_mat,
+				curr_point_mat,
+				status_mat,
+				error_mat
+			);
+			console.timeEnd("calcOpticalFlowPyrLK");
+			debugger;
+		}
+		// 重新跟踪
+		else {
+			this._match(img_);
+		}
+	}
+
 	/** 匹配图像 */
-	match(img_: _tool_camera_positioning.img_t, output_image: cc.Sprite): void {
-		this._auto_delete(this._img_temp);
+	_match(img_: _tool_camera_positioning.img_t): void {
+		this._auto_delete(this._pre_img_temp!);
 		this._match_result = this._auto_delete(new cv.DMatchVectorVector());
 		this._match_result_filter = this._auto_delete(new cv.DMatchVector());
 
-		console.time("reset");
 		// 初始化图
+		console.time("初始化图");
 		this._img_temp.reset(img_);
-		console.timeEnd("reset");
+		console.timeEnd("初始化图");
 
 		// 特征提取
-		console.time("_extract_features");
+		console.time("特征提取");
 		this._feature_extraction(this._img_temp);
-		console.timeEnd("_extract_features");
+		console.timeEnd("特征提取");
 
 		// 获取匹配结果
-		console.time("_update_matching_result");
+		console.time("获取匹配结果");
 		this._update_matching_result();
-		console.timeEnd("_update_matching_result");
+		console.timeEnd("获取匹配结果");
 
 		// 计算单应性矩阵
-		console.time("calculate_homography");
-		this.calculate_homography();
-		console.timeEnd("calculate_homography");
+		console.time("计算单应性矩阵");
+		this._calculate_homography();
+		console.timeEnd("计算单应性矩阵");
 
-		// 扭曲图像
-		console.time("warpPerspective");
-		cv.warpPerspective(
-			this._img_temp.img,
-			this._image_final_result,
-			this._homography,
-			this._img.img.size()
-		);
-		console.timeEnd("warpPerspective");
-
-		// 绘制到 sprite
-		{
-			let canvas = document.createElement("canvas");
-			let sprite_frame = new cc.SpriteFrame();
-			let image_asset = new cc.ImageAsset();
-			let new_texture = new cc.Texture2D();
-
-			// 绘制到 canvas
-			cv.imshow(canvas, this._image_final_result);
-			image_asset.reset(canvas);
-			new_texture.image = image_asset;
-			sprite_frame.texture = new_texture;
-			output_image.spriteFrame = sprite_frame;
+		this._track_status_b = this._homography_valid(this._homography);
+		if (this._track_status_b) {
+			this._matches_n = this._match_result_filter.size();
+			this.fill_output();
+			this._pre_img_temp = this._img_temp;
+		} else {
+			this._auto_delete(this._img_temp);
 		}
 
 		this.clear();
@@ -163,8 +216,53 @@ class tool_camera_positioning {
 		// // https://raw.githubusercontent.com/ahmetozlu/open_source_markerless_augmented_reality/master/MarkerlessAR_V2/src/PatternDetector.cpp
 	}
 
+	fill_output(): void {
+		cv.perspectiveTransform(this._img_pos_mat, this._img_temp_pos_mat, this._homography);
+
+		let transform = cc.mat4(
+			// 0
+			this._homography.doubleAt(0, 0),
+			this._homography.doubleAt(1, 0),
+			0,
+			this._homography.doubleAt(2, 0),
+			// 1
+			this._homography.doubleAt(0, 1),
+			this._homography.doubleAt(1, 1),
+			0,
+			this._homography.doubleAt(2, 1),
+			// 2
+			0,
+			0,
+			1,
+			0,
+			// 3
+			this._homography.doubleAt(0, 2),
+			this._homography.doubleAt(1, 2),
+			0,
+			this._homography.doubleAt(2, 2)
+		);
+
+		console.log("旋转", transform.getRotation(cc.quat()).getEulerAngles(cc.v3()).toString());
+		console.log("平移", transform.getTranslation(cc.v3()).toString());
+		console.log("缩放", transform.getScale(cc.v3()).toString());
+		// // 转换后点
+		// cc.log(this._img_temp_pos_mat.data32F);
+
+		// output->valid = valid;
+	}
+
+	/** 单应性有效判断 */
+	private _homography_valid(H: any): boolean {
+		const N = 10;
+		const det = H.doubleAt(0, 0) * H.doubleAt(1, 1) - H.doubleAt(1, 0) * H.doubleAt(0, 1);
+		return 1 / N < Math.abs(det) && Math.abs(det) < N;
+	}
+
 	/** 自动清理数据 */
 	private _auto_delete<T extends { delete: () => void }>(data_: T): T {
+		if (!data_) {
+			return data_;
+		}
 		this._delete_as.push(data_);
 		return data_;
 	}
@@ -265,7 +363,7 @@ class tool_camera_positioning {
 	}
 
 	/** 计算单应性矩阵 */
-	calculate_homography(): void {
+	private _calculate_homography(): void {
 		let src_mat = this._auto_delete(
 			new cv.Mat(this._img_temp_match_point_ns.length * 0.5, 1, cv.CV_32FC2)
 		);
@@ -280,6 +378,8 @@ class tool_camera_positioning {
 
 	/** 更新匹配结果 */
 	private _update_matching_result(): void {
+		this._img_temp_match_point_ns.splice(0, this._img_temp_match_point_ns.length);
+		this._img_match_point_ns.splice(0, this._img_match_point_ns.length);
 		// 筛选匹配点
 		{
 			let matcher: any;
