@@ -142,32 +142,152 @@ class tool_camera_positioning {
 			}
 			// 初始化图
 			console.time("初始化图");
+
 			this._img_temp.reset(img_);
 			console.timeEnd("初始化图");
 
 			/** 上次匹配点 */
-			let pre_match_point_mat = new cv.Mat(
-				this._img_match_point_ns.length * 0.5,
-				1,
-				cv.CV_32FC2
-			);
-			pre_match_point_mat.data32F.set(this._img_match_point_ns);
+			let framePts = new cv.Mat(this._img_match_point_ns.length * 0.5, 1, cv.CV_32FC2);
+			framePts.data32F.set(this._img_match_point_ns);
 			/** 当前匹配点 */
-			let curr_point_mat = new cv.Mat();
+			let currPts = new cv.Mat();
 			/** 状态 */
-			let status_mat = new cv.Mat();
+			let status = new cv.Mat();
 			/** 错误 */
-			let error_mat = new cv.Mat();
+			let err = new cv.Mat();
 			console.time("calcOpticalFlowPyrLK");
 			cv.calcOpticalFlowPyrLK(
 				this._pre_img_temp.img_gray,
 				this._img_temp.img_gray,
-				pre_match_point_mat,
-				curr_point_mat,
-				status_mat,
-				error_mat
+				framePts,
+				currPts,
+				status,
+				err
 			);
 			console.timeEnd("calcOpticalFlowPyrLK");
+
+			let goodPtsCurrNS: number[] = [];
+			let goodPtsPrevNS: number[] = [];
+			// 计算平均方差
+			let mean,
+				avg_variance = 0.0;
+			let sum = 0.0;
+			let diff: number;
+			let diffs: number[] = [];
+			for (let i = 0; i < framePts.data64F.length; ++i) {
+				if (status.data[i]) {
+					goodPtsCurrNS.push(currPts.data64F[i]);
+					goodPtsPrevNS.push(framePts.data64F[i]);
+					// goodPtsCurr.push_back(curr_point_mat.data32F[i]);
+					// goodPtsPrev.push_back(pre_match_point_mat[i]);
+					diff = Math.sqrt(
+						Math.pow(currPts.data32F[i * 2] - framePts.data32F[i * 2], 2.0) +
+							Math.pow(currPts.data32F[i * 2 + 1] - framePts.data32F[i * 2 + 1], 2.0)
+					);
+					sum += diff;
+					diffs.push(diff);
+				}
+			}
+
+			mean = sum / diffs.length;
+			for (let i = 0; i < goodPtsCurrNS.length; ++i) {
+				avg_variance += Math.pow(diffs[i] - mean, 2);
+			}
+			avg_variance /= diffs.length;
+
+			if (goodPtsCurrNS.length > this._matches_n / 2 && 1.75 > avg_variance) {
+				let goodPtsCurr = this._auto_delete(
+					new cv.Mat(goodPtsCurrNS.length, 1, cv.CV_32FC2)
+				);
+				let goodPtsPrev = this._auto_delete(
+					new cv.Mat(goodPtsPrevNS.length, 1, cv.CV_32FC2)
+				);
+				goodPtsCurr.data64F.set(goodPtsCurrNS);
+				goodPtsPrev.data64F.set(goodPtsPrevNS);
+
+				let transform = cv.estimateAffine2D(goodPtsPrev, goodPtsCurr);
+
+				// 添加行 {0,0,1} 进行转换，使其成为 3x3
+				let temp = new cv.Mat(3, 3, cv.CV_64F);
+				temp.data64F.set([...transform.data64F.slice(0), 0, 0, 1]);
+				transform.delete();
+				transform = temp;
+
+				// update homography matrix
+				let homographyCCMat3 = new cc.Mat3(...this._homography.data64F);
+				let transformCCMat3 = new cc.Mat3(...transform.data64F);
+
+				let transform22 = cc.mat4(
+					// 0
+					this._homography.doubleAt(0, 0),
+					this._homography.doubleAt(1, 0),
+					0,
+					this._homography.doubleAt(2, 0),
+					// 1
+					this._homography.doubleAt(0, 1),
+					this._homography.doubleAt(1, 1),
+					0,
+					this._homography.doubleAt(2, 1),
+					// 2
+					0,
+					0,
+					1,
+					0,
+					// 3
+					this._homography.doubleAt(0, 2),
+					this._homography.doubleAt(1, 2),
+					0,
+					this._homography.doubleAt(2, 2)
+				);
+
+				console.log(
+					"旋转",
+					transform22.getRotation(cc.quat()).getEulerAngles(cc.v3()).toString()
+				);
+				console.log("平移", transform22.getTranslation(cc.v3()).toString());
+				console.log("缩放", transform22.getScale(cc.v3()).toString());
+
+				homographyCCMat3 = homographyCCMat3.multiply(transformCCMat3);
+				this._homography.data64F.set(cc.Mat3.toArray([], homographyCCMat3));
+
+				transform22 = cc.mat4(
+					// 0
+					this._homography.doubleAt(0, 0),
+					this._homography.doubleAt(1, 0),
+					0,
+					this._homography.doubleAt(2, 0),
+					// 1
+					this._homography.doubleAt(0, 1),
+					this._homography.doubleAt(1, 1),
+					0,
+					this._homography.doubleAt(2, 1),
+					// 2
+					0,
+					0,
+					1,
+					0,
+					// 3
+					this._homography.doubleAt(0, 2),
+					this._homography.doubleAt(1, 2),
+					0,
+					this._homography.doubleAt(2, 2)
+				);
+
+				console.log(
+					"旋转",
+					transform22.getRotation(cc.quat()).getEulerAngles(cc.v3()).toString()
+				);
+				console.log("平移", transform22.getTranslation(cc.v3()).toString());
+				console.log("缩放", transform22.getScale(cc.v3()).toString());
+
+				// set old points to new points
+				this._img_match_point_ns = goodPtsCurrNS; // framePts = goodPtsCurr;
+
+				this._track_status_b = this._homography_valid(this._homography);
+				if (this._track_status_b) {
+					this.fill_output();
+				}
+			}
 			debugger;
 		}
 		// 重新跟踪
@@ -207,6 +327,7 @@ class tool_camera_positioning {
 			this._matches_n = this._match_result_filter.size();
 			this.fill_output();
 			this._pre_img_temp = this._img_temp;
+			this._img_temp = new _tool_camera_positioning.img_data();
 		} else {
 			this._auto_delete(this._img_temp);
 		}
@@ -373,7 +494,7 @@ class tool_camera_positioning {
 		src_mat.data32F.set(this._img_temp_match_point_ns);
 		dst_mat.data32F.set(this._img_match_point_ns);
 
-		this._homography = this._auto_delete(cv.findHomography(src_mat, dst_mat, cv.RANSAC));
+		this._homography = cv.findHomography(src_mat, dst_mat, cv.RANSAC);
 	}
 
 	/** 更新匹配结果 */

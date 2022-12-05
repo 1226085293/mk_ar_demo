@@ -12,8 +12,10 @@ export class camera_positioning extends Component {
 	@property({ displayName: "对齐图", type: cc.Sprite })
 	alignment_image: cc.Sprite = null!;
 
-	@property({ displayName: "输出图", type: cc.Sprite })
-	output_image: cc.Sprite = null!;
+	@property({ displayName: "对齐图2", type: cc.ImageAsset })
+	alignment_image2: cc.ImageAsset = null!;
+	// @property({ displayName: "输出图", type: cc.Sprite })
+	// output_image: cc.Sprite = null!;
 
 	@property({ displayName: "绘图组件", type: cc.Graphics })
 	graphics: cc.Graphics = null!;
@@ -53,8 +55,12 @@ export class camera_positioning extends Component {
 
 		let count_n = 0;
 		this.schedule(() => {
-			cc.log("----------------" + count_n++ + "----------------");
-			positioning.calculate(this.alignment_image.spriteFrame?.texture["image"].data);
+			cc.log("----------------" + count_n + "----------------");
+			if (count_n++ === 1) {
+				positioning.calculate(this.alignment_image2.data as any);
+			} else {
+				positioning.calculate(this.alignment_image.spriteFrame?.texture["image"].data);
+			}
 		}, 0);
 		// camera_position_a.destroy();
 		// return;
