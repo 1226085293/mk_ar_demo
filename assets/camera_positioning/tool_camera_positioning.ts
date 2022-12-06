@@ -340,6 +340,7 @@ class tool_camera_positioning {
 
 	fill_output(): void {
 		// https://docs.opencv.org/3.4/d9/dab/tutorial_homography.html
+		// https://visp-doc.inria.fr/doxygen/camera_localization/tutorial-pose-dlt-planar-opencv.html
 		cv.perspectiveTransform(this._img_pos_mat, this._img_temp_pos_mat, this._homography);
 		// Normalization to ensure that ||c1|| = 1
 		let norm = Math.sqrt(
@@ -359,11 +360,60 @@ class tool_camera_positioning {
 		let tvec = this._homography.col(2);
 		let R = new cv.Mat(3, 3, cv.CV_64F);
 		R.data64F.set([c1.x, c2.x, c3.x, c1.y, c2.y, c3.y, c1.z, c2.z, c3.z]);
+
+		let transform = cc.mat4(
+			// 0
+			c1.x,
+			c2.x,
+			c3.x,
+			0,
+			// 1
+			c1.y,
+			c2.y,
+			c3.y,
+			0,
+			// 2
+			c1.z,
+			c2.z,
+			c3.z,
+			0,
+			// 3
+			0,
+			0,
+			0,
+			1
+		);
+
 		// for (let i = 0; i < 3; i++) {
 		// R.doubleAt(i, 0) = c1.doubleAt(i, 0);
 		// R.doubleAt(i, 1) = c2.doubleAt(i, 0);
 		// R.doubleAt(i, 2) = c3.doubleAt(i, 0);
 		// }
+
+		console.log("旋转", transform.getRotation(cc.quat()).getEulerAngles(cc.v3()).toString());
+		transform = cc.mat4(
+			// 0
+			this._homography.doubleAt(0, 0),
+			this._homography.doubleAt(1, 0),
+			0,
+			this._homography.doubleAt(2, 0),
+			// 1
+			this._homography.doubleAt(0, 1),
+			this._homography.doubleAt(1, 1),
+			0,
+			this._homography.doubleAt(2, 1),
+			// 2
+			0,
+			0,
+			1,
+			0,
+			// 3
+			this._homography.doubleAt(0, 2),
+			this._homography.doubleAt(1, 2),
+			0,
+			this._homography.doubleAt(2, 2)
+		);
+		console.log("旋转2", transform.getRotation(cc.quat()).getEulerAngles(cc.v3()).toString());
 
 		// let transform = cc.mat4(
 		// 	// 0
@@ -387,7 +437,6 @@ class tool_camera_positioning {
 		// 	0,
 		// 	this._homography.doubleAt(2, 2)
 		// );
-
 		// console.log("旋转", transform.getRotation(cc.quat()).getEulerAngles(cc.v3()).toString());
 		// console.log("平移", transform.getTranslation(cc.v3()).toString());
 		// console.log("缩放", transform.getScale(cc.v3()).toString());
