@@ -55,6 +55,8 @@ export class camera_positioning extends Component {
 
 		let count_n = 0;
 		this.schedule(() => {
+			positioning.calculate(this.alignment_image.spriteFrame?.texture["image"].data);
+			return;
 			cc.log("----------------" + count_n + "----------------");
 			if (count_n++ === 1) {
 				positioning.calculate(this.alignment_image2.data as any);
