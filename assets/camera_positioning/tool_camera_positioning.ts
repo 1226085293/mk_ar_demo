@@ -339,6 +339,7 @@ class tool_camera_positioning {
 	}
 
 	fill_output(): void {
+		// https://docs.opencv.org/3.4/d9/dab/tutorial_homography.html
 		cv.perspectiveTransform(this._img_pos_mat, this._img_temp_pos_mat, this._homography);
 		// Normalization to ensure that ||c1|| = 1
 		let norm = Math.sqrt(
