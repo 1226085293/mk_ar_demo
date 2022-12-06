@@ -14,8 +14,6 @@ namespace _tool_camera_positioning {
 		key_points: any;
 		/** 描述符 */
 		descriptors: any;
-		/** 测试节点 */
-		node?: cc.Node;
 
 		reset(img_: img_t): void {
 			// 必须先 delete 才能 reset
@@ -53,10 +51,6 @@ namespace _tool_camera_positioning {
 class tool_camera_positioning {
 	constructor(init_: tool_camera_positioning_.init_config) {
 		this._init_data = new tool_camera_positioning_.init_config(init_);
-
-		// 绘制节点
-		this._img.node = this._init_data.node_as![0];
-		this._img_temp.node = this._init_data.node_as![1];
 	}
 	/* --------------- private --------------- */
 	private _init_data!: tool_camera_positioning_.init_config;
@@ -476,56 +470,6 @@ class tool_camera_positioning {
 		return data_;
 	}
 
-	/** 绘制匹配线 */
-	private _draw_match_line(): void {
-		// 绘制匹配结果
-		if (
-			this._init_data.graphics &&
-			this._init_data.draw_type_n! & tool_camera_positioning_.draw.match_point
-		) {
-			let graphics = this._init_data.graphics;
-
-			graphics.moveTo(
-				this._img.key_points.get(this._match_result_filter.get(0).queryIdx).pt.x,
-				this._img.node!.height -
-					this._img.key_points.get(this._match_result_filter.get(0).queryIdx).pt.y
-			);
-			for (let k_n = 0, len_n = this._match_result_filter.size(); k_n < len_n; ++k_n) {
-				// 随机绘制颜色
-				graphics.strokeColor = [
-					cc.Color.WHITE,
-					cc.Color.GRAY,
-					cc.Color.BLACK,
-					cc.Color.TRANSPARENT,
-					cc.Color.RED,
-					cc.Color.GREEN,
-					cc.Color.BLUE,
-					cc.Color.CYAN,
-					cc.Color.MAGENTA,
-					cc.Color.YELLOW,
-				][Math.floor(Math.random() * 9)];
-				graphics.lineTo(
-					this._img_temp.key_points.get(this._match_result_filter.get(k_n).trainIdx).pt
-						.x + this._img.node!.width,
-					this._img_temp.node!.height -
-						this._img_temp.key_points.get(this._match_result_filter.get(k_n).trainIdx)
-							.pt.y
-				);
-				graphics.stroke();
-				if (k_n + 1 < len_n) {
-					graphics.moveTo(
-						this._img.key_points.get(this._match_result_filter.get(k_n + 1).queryIdx).pt
-							.x,
-						this._img_temp.node!.height -
-							this._img.key_points.get(
-								this._match_result_filter.get(k_n + 1).queryIdx
-							).pt.y
-					);
-				}
-			}
-		}
-	}
-
 	/**
 	 * 特征提取
 	 */
@@ -543,30 +487,6 @@ class tool_camera_positioning {
 		);
 		if (!img_.key_points.size() || img_.descriptors.empty()) {
 			return false;
-		}
-
-		// 绘制关键点
-		if (img_.node && this._init_data.draw_type_n! & tool_camera_positioning_.draw.key_point) {
-			/** 绘图组件 */
-			let graphics: cc.Graphics = img_.node.getComponentInChildren(cc.Graphics)!;
-
-			// 参考图
-			if (!graphics) {
-				return true;
-			}
-			// 开始绘制，y 向下需转换
-			for (let k_n = 0, len_n = img_.key_points.size(); k_n < len_n; ++k_n) {
-				graphics.moveTo(
-					img_.key_points.get(k_n).pt.x,
-					img_.node.height - img_.key_points.get(k_n).pt.y
-				);
-				graphics.circle(
-					img_.key_points.get(k_n).pt.x,
-					img_.node.height - img_.key_points.get(k_n).pt.y,
-					6
-				);
-				graphics.stroke();
-			}
 		}
 		return true;
 	}
@@ -665,9 +585,6 @@ class tool_camera_positioning {
 			}
 			matcher.clear();
 		}
-
-		// 绘制匹配线
-		this._draw_match_line();
 	}
 }
 
@@ -697,8 +614,6 @@ export namespace tool_camera_positioning_ {
 		match_ratio?: number;
 		/** 图片节点（0：定位图，1：临时图、绘制节点下必须存在 Graphics 组件） */
 		node_as?: cc.Node[] = [];
-		/** 绘图组件 */
-		graphics?: cc.Graphics;
 		/** 绘制类型 */
 		draw_type_n? = 0;
 	}
