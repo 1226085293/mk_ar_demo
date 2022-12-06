@@ -353,7 +353,7 @@ class tool_camera_positioning {
 		homographyCCMat.multiplyScalar(1 / norm);
 		let c1 = cc.v3(homographyCCMat.m00, homographyCCMat.m01, homographyCCMat.m02);
 		let c2 = cc.v3(homographyCCMat.m03, homographyCCMat.m04, homographyCCMat.m05);
-		let c3 = c1.cross(c2);
+		let c3 = c1.clone().cross(c2);
 		// let c1 = this._homography.col(0);
 		// let c2 = this._homography.col(1);
 		// let c3 = c1.cross(c2);
@@ -390,7 +390,12 @@ class tool_camera_positioning {
 		// R.doubleAt(i, 2) = c3.doubleAt(i, 0);
 		// }
 
-		console.log("旋转", transform.getRotation(cc.quat()).getEulerAngles(cc.v3()).toString());
+		console.log("平移", cc.v3(...this._homography.col(2).data64F));
+		console.log(
+			"旋转",
+			(transform.getRotation(cc.quat()).getEulerAngles(cc.v3()) as cc.Vec3).toString()
+		);
+
 		transform = cc.mat4(
 			// 0
 			this._homography.doubleAt(0, 0),
@@ -413,33 +418,9 @@ class tool_camera_positioning {
 			0,
 			this._homography.doubleAt(2, 2)
 		);
-		console.log("旋转2", transform.getRotation(cc.quat()).getEulerAngles(cc.v3()).toString());
-
-		// let transform = cc.mat4(
-		// 	// 0
-		// 	this._homography.doubleAt(0, 0),
-		// 	this._homography.doubleAt(1, 0),
-		// 	0,
-		// 	this._homography.doubleAt(2, 0),
-		// 	// 1
-		// 	this._homography.doubleAt(0, 1),
-		// 	this._homography.doubleAt(1, 1),
-		// 	0,
-		// 	this._homography.doubleAt(2, 1),
-		// 	// 2
-		// 	0,
-		// 	0,
-		// 	1,
-		// 	0,
-		// 	// 3
-		// 	this._homography.doubleAt(0, 2),
-		// 	this._homography.doubleAt(1, 2),
-		// 	0,
-		// 	this._homography.doubleAt(2, 2)
-		// );
-		// console.log("旋转", transform.getRotation(cc.quat()).getEulerAngles(cc.v3()).toString());
-		// console.log("平移", transform.getTranslation(cc.v3()).toString());
-		// console.log("缩放", transform.getScale(cc.v3()).toString());
+		console.log("旋转", transform.getRotation(cc.quat()).getEulerAngles(cc.v3()).toString());
+		console.log("平移", transform.getTranslation(cc.v3()).toString());
+		console.log("缩放", transform.getScale(cc.v3()).toString());
 		// // 转换后点
 		// cc.log(this._img_temp_pos_mat.data32F);
 
