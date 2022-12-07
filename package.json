@@ -1,12 +1,19 @@
 {
-  "name": "AR_Demo",
-  "uuid": "d0934211-58b0-4bbb-89d7-948c2bd5cd25",
-  "version": "3.6.1",
-  "creator": {
-    "version": "3.6.1"
-  },
-  "dependencies": {
-    "@uppy/core": "^3.0.4",
-    "@uppy/webcam": "^3.2.1"
-  }
+	"name": "AR_Demo",
+	"uuid": "d0934211-58b0-4bbb-89d7-948c2bd5cd25",
+	"version": "3.6.1",
+	"creator": {
+		"version": "3.6.1"
+	},
+	"devDependencies": {
+		"@typescript-eslint/eslint-plugin": "^5.34.0",
+		"@typescript-eslint/parser": "^5.34.0",
+		"eslint": "^8.22.0",
+		"eslint-config-prettier": "^8.5.0",
+		"eslint-plugin-prettier": "^4.2.1",
+		"eslint-plugin-unused-imports": "^2.0.0",
+		"prettier": "^2.7.1",
+		"typescript": "^4.7.4"
+	},
+	"dependencies": {}
 }

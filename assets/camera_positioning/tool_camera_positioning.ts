@@ -18,12 +18,12 @@ namespace _tool_camera_positioning {
 		reset(img_: img_t): void {
 			// 必须先 delete 才能 reset
 			if (this.img) {
-				return;
+				this.delete();
 			}
 
 			// 图
 			this.img = cv.imread(img_);
-			this.img_gray = new cv.Mat();
+			this.img_gray = new cv.Mat(img_.width, img_.height, cv.CV_8UC1);
 			this.key_points = new cv.KeyPointVector();
 			this.descriptors = new cv.Mat();
 			// 灰度图
@@ -76,7 +76,7 @@ class tool_camera_positioning {
 	private _img_match_point_ns: number[] = [];
 	/** 空矩阵 */
 	private _none_mat: any;
-	/** 光流跟踪状态 */
+	/** 跟踪状态 */
 	private _track_status_b = false;
 	/** 匹配点数量 */
 	private _matches_n = 0;
@@ -84,11 +84,15 @@ class tool_camera_positioning {
 	private _img_pos_mat = new cv.Mat(4, 1, cv.CV_32FC2);
 	/** 临时图定位点 */
 	private _img_temp_pos_mat = new cv.Mat(4, 1, cv.CV_32FC2);
+	/** 绘制节点 */
+	private _graphics!: cc.Graphics;
 	/* ------------------------------- 功能 ------------------------------- */
 	/** 初始化 */
 	init(): void {
 		this._none_mat = new cv.Mat();
 		this._image_final_result = new cv.Mat();
+
+		// 初始化定位图
 		this._img.reset(this._init_data.img);
 		this._feature_extraction(this._img);
 
@@ -107,6 +111,16 @@ class tool_camera_positioning {
 			0,
 			this._img.img.rows,
 		]);
+
+		// 绘制组件
+		{
+			// let node = new cc.Node();
+			// cc.director.getScene()?.getComponentInChildren(cc.Canvas)!.node.addChild(node);
+			// this._graphics = node.graphics;
+			// node.width = node.parent!.width;
+			// node.height = node.parent!.height;
+			this._graphics = cc.find("Canvas/g")!.graphics;
+		}
 	}
 
 	/** 销毁 */
@@ -118,6 +132,7 @@ class tool_camera_positioning {
 		this._init_data.matcher.delete();
 		this._init_data.knn_matcher.delete();
 		this._init_data.extractor.delete();
+		this._graphics.node.destroy();
 	}
 
 	/** 清理数据 */
@@ -131,25 +146,42 @@ class tool_camera_positioning {
 	calculate(img_: _tool_camera_positioning.img_t): void {
 		// 光流
 		if (this._track_status_b) {
-			if (!this._pre_img_temp) {
-				return;
-			}
-			// 初始化图
-			console.time("初始化图");
+			this._track(img_);
+		}
+		// 重新匹配
+		else {
+			this._match(img_);
+		}
 
-			this._img_temp.reset(img_);
-			console.timeEnd("初始化图");
+		this.clear();
+	}
 
-			/** 上次匹配点 */
-			let framePts = new cv.Mat(this._img_match_point_ns.length * 0.5, 1, cv.CV_32FC2);
+	/** 跟踪图像 */
+	private _track(img_: _tool_camera_positioning.img_t): void {
+		if (!this._pre_img_temp) {
+			return;
+		}
+		// 初始化图
+		this._img_temp.reset(img_);
+
+		this._track_status_b = false;
+
+		/** 上次匹配点 */
+		let framePts = this._auto_delete(
+			new cv.Mat(this._img_match_point_ns.length * 0.5, 1, cv.CV_32FC2)
+		);
+		try {
 			framePts.data32F.set(this._img_match_point_ns);
-			/** 当前匹配点 */
-			let currPts = new cv.Mat();
-			/** 状态 */
-			let status = new cv.Mat();
-			/** 错误 */
-			let err = new cv.Mat();
-			console.time("calcOpticalFlowPyrLK");
+		} catch (e) {
+			debugger;
+		}
+		/** 当前匹配点 */
+		let currPts = new cv.Mat();
+		/** 状态 */
+		let status = new cv.Mat();
+		/** 错误 */
+		let err = new cv.Mat();
+		try {
 			cv.calcOpticalFlowPyrLK(
 				this._pre_img_temp.img_gray,
 				this._img_temp.img_gray,
@@ -158,184 +190,205 @@ class tool_camera_positioning {
 				status,
 				err
 			);
-			console.timeEnd("calcOpticalFlowPyrLK");
-
-			// https://docs.opencv.org/3.4/d9/dab/tutorial_homography.html
-
-			let goodPtsCurrNS: number[] = [];
-			let goodPtsPrevNS: number[] = [];
-			// 计算平均方差
-			let mean,
-				avg_variance = 0.0;
-			let sum = 0.0;
-			let diff: number;
-			let diffs: number[] = [];
-			for (let i = 0; i < framePts.data64F.length; ++i) {
-				if (status.data[i]) {
-					goodPtsCurrNS.push(currPts.data64F[i]);
-					goodPtsPrevNS.push(framePts.data64F[i]);
-					diff = Math.sqrt(
-						Math.pow(currPts.data32F[i * 2] - framePts.data32F[i * 2], 2.0) +
-							Math.pow(currPts.data32F[i * 2 + 1] - framePts.data32F[i * 2 + 1], 2.0)
-					);
-					sum += diff;
-					diffs.push(diff);
-				}
-			}
-
-			mean = sum / diffs.length;
-			for (let i = 0; i < goodPtsCurrNS.length; ++i) {
-				avg_variance += Math.pow(diffs[i] - mean, 2);
-			}
-			avg_variance /= diffs.length;
-
-			console.log("平均方差", avg_variance);
-			if (goodPtsCurrNS.length > this._matches_n / 2 && 1.75 > avg_variance) {
-				let goodPtsCurr = this._auto_delete(
-					new cv.Mat(goodPtsCurrNS.length, 1, cv.CV_32FC2)
-				);
-				let goodPtsPrev = this._auto_delete(
-					new cv.Mat(goodPtsPrevNS.length, 1, cv.CV_32FC2)
-				);
-				goodPtsCurr.data64F.set(goodPtsCurrNS);
-				goodPtsPrev.data64F.set(goodPtsPrevNS);
-
-				let transform = cv.estimateAffine2D(goodPtsPrev, goodPtsCurr);
-
-				// 添加行 {0,0,1} 进行转换，使其成为 3x3
-				let temp = new cv.Mat(3, 3, cv.CV_64F);
-				temp.data64F.set([...transform.data64F.slice(0), 0, 0, 1]);
-				transform.delete();
-				transform = temp;
-
-				// update homography matrix
-				let homographyCCMat3 = new cc.Mat3(...this._homography.data64F);
-				let transformCCMat3 = new cc.Mat3(...transform.data64F);
-
-				let transform22 = cc.mat4(
-					// 0
-					this._homography.doubleAt(0, 0),
-					this._homography.doubleAt(1, 0),
-					0,
-					this._homography.doubleAt(2, 0),
-					// 1
-					this._homography.doubleAt(0, 1),
-					this._homography.doubleAt(1, 1),
-					0,
-					this._homography.doubleAt(2, 1),
-					// 2
-					0,
-					0,
-					1,
-					0,
-					// 3
-					this._homography.doubleAt(0, 2),
-					this._homography.doubleAt(1, 2),
-					0,
-					this._homography.doubleAt(2, 2)
-				);
-
-				console.log(
-					"旋转",
-					transform22.getRotation(cc.quat()).getEulerAngles(cc.v3()).toString()
-				);
-				console.log("平移", transform22.getTranslation(cc.v3()).toString());
-				console.log("缩放", transform22.getScale(cc.v3()).toString());
-
-				homographyCCMat3 = homographyCCMat3.multiply(transformCCMat3);
-				this._homography.data64F.set(cc.Mat3.toArray([], homographyCCMat3));
-
-				transform22 = cc.mat4(
-					// 0
-					this._homography.doubleAt(0, 0),
-					this._homography.doubleAt(1, 0),
-					0,
-					this._homography.doubleAt(2, 0),
-					// 1
-					this._homography.doubleAt(0, 1),
-					this._homography.doubleAt(1, 1),
-					0,
-					this._homography.doubleAt(2, 1),
-					// 2
-					0,
-					0,
-					1,
-					0,
-					// 3
-					this._homography.doubleAt(0, 2),
-					this._homography.doubleAt(1, 2),
-					0,
-					this._homography.doubleAt(2, 2)
-				);
-
-				console.log(
-					"旋转",
-					transform22.getRotation(cc.quat()).getEulerAngles(cc.v3()).toString()
-				);
-				console.log("平移", transform22.getTranslation(cc.v3()).toString());
-				console.log("缩放", transform22.getScale(cc.v3()).toString());
-
-				// set old points to new points
-				this._img_match_point_ns = goodPtsCurrNS; // framePts = goodPtsCurr;
-
-				this._track_status_b = this._homography_valid(this._homography);
-				if (this._track_status_b) {
-					this.fill_output();
-				}
-			}
+		} catch (e) {
 			debugger;
 		}
-		// 重新跟踪
-		else {
-			this._match(img_);
+
+		// https://docs.opencv.org/3.4/d9/dab/tutorial_homography.html
+
+		let goodPtsCurrNS: number[] = [];
+		let goodPtsPrevNS: number[] = [];
+		// 计算平均方差
+		let mean,
+			avg_variance = 0.0;
+		let sum = 0.0;
+		let diff: number;
+		let diffs: number[] = [];
+		for (let i = 0; i < framePts.data64F.length; ++i) {
+			if (status.data[i]) {
+				goodPtsCurrNS.push(currPts.data64F[i]);
+				goodPtsPrevNS.push(framePts.data64F[i]);
+				diff = Math.sqrt(
+					Math.pow(currPts.data32F[i * 2] - framePts.data32F[i * 2], 2.0) +
+						Math.pow(currPts.data32F[i * 2 + 1] - framePts.data32F[i * 2 + 1], 2.0)
+				);
+				sum += diff;
+				diffs.push(diff);
+			}
 		}
+
+		mean = sum / diffs.length;
+		for (let i = 0; i < goodPtsCurrNS.length; ++i) {
+			avg_variance += Math.pow(diffs[i] - mean, 2);
+		}
+		if (diffs.length) {
+			avg_variance /= diffs.length;
+		}
+		if (isNaN(avg_variance)) {
+			debugger;
+		}
+
+		console.log("平均方差", avg_variance);
+		if (goodPtsCurrNS.length > this._matches_n / 2 && 1.75 > avg_variance) {
+			let goodPtsCurr = this._auto_delete(new cv.Mat(goodPtsCurrNS.length, 1, cv.CV_32FC2));
+			let goodPtsPrev = this._auto_delete(new cv.Mat(goodPtsPrevNS.length, 1, cv.CV_32FC2));
+			goodPtsCurr.data64F.set(goodPtsCurrNS);
+			goodPtsPrev.data64F.set(goodPtsPrevNS);
+
+			let transform = cv.estimateAffine2D(goodPtsPrev, goodPtsCurr);
+
+			// 添加行 {0,0,1} 进行转换，使其成为 3x3
+			let temp = new cv.Mat(3, 3, cv.CV_64F);
+			temp.data64F.set([...transform.data64F.slice(0), 0, 0, 1]);
+			transform.delete();
+			transform = temp;
+
+			this._homography.data64F.set(
+				[...this._homography.data64F].map((v, k_n) => v * transform.data64F[k_n])
+			);
+
+			// update homography matrix
+			// let homographyCCMat3 = new cc.Mat3(...this._homography.data64F);
+			// let transformCCMat3 = new cc.Mat3(...transform.data64F);
+
+			// let transform22 = cc.mat4(
+			// 	// 0
+			// 	this._homography.doubleAt(0, 0),
+			// 	this._homography.doubleAt(1, 0),
+			// 	0,
+			// 	this._homography.doubleAt(2, 0),
+			// 	// 1
+			// 	this._homography.doubleAt(0, 1),
+			// 	this._homography.doubleAt(1, 1),
+			// 	0,
+			// 	this._homography.doubleAt(2, 1),
+			// 	// 2
+			// 	0,
+			// 	0,
+			// 	1,
+			// 	0,
+			// 	// 3
+			// 	this._homography.doubleAt(0, 2),
+			// 	this._homography.doubleAt(1, 2),
+			// 	0,
+			// 	this._homography.doubleAt(2, 2)
+			// );
+
+			// console.log(
+			// 	"旋转",
+			// 	transform22.getRotation(cc.quat()).getEulerAngles(cc.v3()).toString()
+			// );
+			// console.log("平移", transform22.getTranslation(cc.v3()).toString());
+			// console.log("缩放", transform22.getScale(cc.v3()).toString());
+
+			// homographyCCMat3 = homographyCCMat3.multiply(transformCCMat3);
+			// this._homography.data64F.set(cc.Mat3.toArray([], homographyCCMat3));
+
+			// transform22 = cc.mat4(
+			// 	// 0
+			// 	this._homography.doubleAt(0, 0),
+			// 	this._homography.doubleAt(1, 0),
+			// 	0,
+			// 	this._homography.doubleAt(2, 0),
+			// 	// 1
+			// 	this._homography.doubleAt(0, 1),
+			// 	this._homography.doubleAt(1, 1),
+			// 	0,
+			// 	this._homography.doubleAt(2, 1),
+			// 	// 2
+			// 	0,
+			// 	0,
+			// 	1,
+			// 	0,
+			// 	// 3
+			// 	this._homography.doubleAt(0, 2),
+			// 	this._homography.doubleAt(1, 2),
+			// 	0,
+			// 	this._homography.doubleAt(2, 2)
+			// );
+
+			// console.log(
+			// 	"旋转",
+			// 	transform22.getRotation(cc.quat()).getEulerAngles(cc.v3()).toString()
+			// );
+			// console.log("平移", transform22.getTranslation(cc.v3()).toString());
+			// console.log("缩放", transform22.getScale(cc.v3()).toString());
+
+			// set old points to new points
+			this._img_match_point_ns = [...goodPtsCurr.data32F]; // framePts = goodPtsCurr;
+
+			this._track_status_b = this._homography_valid(this._homography);
+			if (this._track_status_b) {
+				this._debug_output();
+			}
+		}
+		this._pre_img_temp.delete();
+		this._pre_img_temp = this._img_temp;
+		this._img_temp = new _tool_camera_positioning.img_data();
 	}
 
 	/** 匹配图像 */
-	_match(img_: _tool_camera_positioning.img_t): void {
+	private _match(img_: _tool_camera_positioning.img_t): void {
 		this._auto_delete(this._pre_img_temp!);
 		this._match_result = this._auto_delete(new cv.DMatchVectorVector());
 		this._match_result_filter = this._auto_delete(new cv.DMatchVector());
 
 		// 初始化图
-		console.time("初始化图");
 		this._img_temp.reset(img_);
-		console.timeEnd("初始化图");
 
 		// 特征提取
-		console.time("特征提取");
-		this._feature_extraction(this._img_temp);
-		console.timeEnd("特征提取");
+		if (!this._feature_extraction(this._img_temp)) {
+			this._auto_delete(this._img_temp);
+			this.clear();
+			return;
+		}
 
 		// 获取匹配结果
-		console.time("获取匹配结果");
 		this._update_matching_result();
-		console.timeEnd("获取匹配结果");
+		// console.log("匹配点数量", this._match_result_filter.size());
+		if (this._match_result_filter.size() < this._init_data.min_match_num!) {
+			this._auto_delete(this._img_temp);
+			this.clear();
+			return;
+		}
 
 		// 计算单应性矩阵
-		console.time("计算单应性矩阵");
 		this._calculate_homography();
-		console.timeEnd("计算单应性矩阵");
 
+		// 更新跟踪状态
 		this._track_status_b = this._homography_valid(this._homography);
 		if (this._track_status_b) {
 			this._matches_n = this._match_result_filter.size();
-			this.fill_output();
+			this._debug_output();
+			this._pre_img_temp?.delete();
 			this._pre_img_temp = this._img_temp;
 			this._img_temp = new _tool_camera_positioning.img_data();
 		} else {
 			this._auto_delete(this._img_temp);
 		}
-
-		this.clear();
 		// // https://ahmetozlu.medium.com/marker-less-augmented-reality-by-opencv-and-opengl-531b2af0a130
 		// // https://raw.githubusercontent.com/ahmetozlu/open_source_markerless_augmented_reality/master/MarkerlessAR_V2/src/PatternDetector.cpp
 	}
 
-	fill_output(): void {
+	/** 调试输出 */
+	private _debug_output(): void {
 		// https://docs.opencv.org/3.4/d9/dab/tutorial_homography.html
 		// https://visp-doc.inria.fr/doxygen/camera_localization/tutorial-pose-dlt-planar-opencv.html
 		cv.perspectiveTransform(this._img_pos_mat, this._img_temp_pos_mat, this._homography);
+
+		let offset_v2 = cc.v2(0, 0);
+		let corners = [...this._img_temp_pos_mat.data32F].map(
+			(v_n, k_n) => v_n + (k_n & 1 ? offset_v2.y : offset_v2.x)
+		);
+		this._graphics.clear();
+		this._graphics.moveTo(corners[0], corners[1]);
+		this._graphics.lineTo(corners[2], corners[3]);
+		this._graphics.lineTo(corners[4], corners[5]);
+		this._graphics.lineTo(corners[6], corners[7]);
+		this._graphics.lineTo(corners[0], corners[1]);
+		// this._graphics.close();
+		this._graphics.stroke();
+		return;
 		// Normalization to ensure that ||c1|| = 1
 		let norm = Math.sqrt(
 			this._homography.doubleAt(0, 0) * this._homography.doubleAt(0, 0) +
@@ -616,6 +669,8 @@ export namespace tool_camera_positioning_ {
 		node_as?: cc.Node[] = [];
 		/** 绘制类型 */
 		draw_type_n? = 0;
+		/** 最小匹配点数量限制（单应性最低4个点） */
+		min_match_num? = 10;
 	}
 }
 
