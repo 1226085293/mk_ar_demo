@@ -144,6 +144,7 @@ class tool_camera_positioning {
 
 	/** 计算 */
 	calculate(img_: _tool_camera_positioning.img_t): void {
+		// this._track_status_b = false;
 		// 光流
 		if (this._track_status_b) {
 			this._track(img_);
@@ -194,8 +195,21 @@ class tool_camera_positioning {
 			debugger;
 		}
 
-		// https://docs.opencv.org/3.4/d9/dab/tutorial_homography.html
+		// // 转换坐标系
+		// let height_n = this._img_temp.img.rows;
+		// /** 转换到 cocos 坐标系 */
+		// currPts.data32F.set(
+		// 	currPts.data32F.map((v_n, k_n) => {
+		// 		return k_n & 1 ? height_n - v_n : v_n;
+		// 	})
+		// );
+		// framePts.data32F.set(
+		// 	framePts.data32F.map((v_n, k_n) => {
+		// 		return k_n & 1 ? height_n - v_n : v_n;
+		// 	})
+		// );
 
+		// https://docs.opencv.org/3.4/d9/dab/tutorial_homography.html
 		let goodPtsCurrNS: number[] = [];
 		let goodPtsPrevNS: number[] = [];
 		// 计算平均方差
@@ -228,28 +242,46 @@ class tool_camera_positioning {
 			debugger;
 		}
 
-		console.log("平均方差", avg_variance);
+		// console.log("平均方差", avg_variance);
 		if (goodPtsCurrNS.length > this._matches_n / 2 && 1.75 > avg_variance) {
 			let goodPtsCurr = this._auto_delete(new cv.Mat(goodPtsCurrNS.length, 1, cv.CV_32FC2));
 			let goodPtsPrev = this._auto_delete(new cv.Mat(goodPtsPrevNS.length, 1, cv.CV_32FC2));
 			goodPtsCurr.data64F.set(goodPtsCurrNS);
 			goodPtsPrev.data64F.set(goodPtsPrevNS);
 
+			// 仿射变换
+			// https://docs.opencv.org/3.4/d4/d61/tutorial_warp_affine.html
 			let transform = cv.estimateAffine2D(goodPtsPrev, goodPtsCurr);
 
 			// 添加行 {0,0,1} 进行转换，使其成为 3x3
 			let temp = new cv.Mat(3, 3, cv.CV_64F);
+			// temp.data64F.set([
+			// 	// 1
+			// 	transform.data64F[0],
+			// 	transform.data64F[1],
+			// 	0,
+			// 	// 2
+			// 	transform.data64F[3],
+			// 	transform.data64F[4],
+			// 	0,
+			// 	// 3
+			// 	transform.data64F[2],
+			// 	transform.data64F[5],
+			// 	1,
+			// ]);
 			temp.data64F.set([...transform.data64F.slice(0), 0, 0, 1]);
 			transform.delete();
 			transform = temp;
 
-			this._homography.data64F.set(
-				[...this._homography.data64F].map((v, k_n) => v * transform.data64F[k_n])
-			);
+			// this._homography.data64F.set(
+			// 	[...this._homography.data64F].map((v, k_n) => v * transform.data64F[k_n])
+			// );
 
 			// update homography matrix
-			// let homographyCCMat3 = new cc.Mat3(...this._homography.data64F);
-			// let transformCCMat3 = new cc.Mat3(...transform.data64F);
+			let homographyCCMat3 = new cc.Mat3(...this._homography.data64F);
+			let transformCCMat3 = new cc.Mat3(...transform.data64F);
+			homographyCCMat3 = homographyCCMat3.multiply(transformCCMat3);
+			this._homography.data64F.set(cc.Mat3.toArray([], homographyCCMat3));
 
 			// let transform22 = cc.mat4(
 			// 	// 0
@@ -280,9 +312,6 @@ class tool_camera_positioning {
 			// );
 			// console.log("平移", transform22.getTranslation(cc.v3()).toString());
 			// console.log("缩放", transform22.getScale(cc.v3()).toString());
-
-			// homographyCCMat3 = homographyCCMat3.multiply(transformCCMat3);
-			// this._homography.data64F.set(cc.Mat3.toArray([], homographyCCMat3));
 
 			// transform22 = cc.mat4(
 			// 	// 0
@@ -376,10 +405,14 @@ class tool_camera_positioning {
 		// https://visp-doc.inria.fr/doxygen/camera_localization/tutorial-pose-dlt-planar-opencv.html
 		cv.perspectiveTransform(this._img_pos_mat, this._img_temp_pos_mat, this._homography);
 
+		let canvas_size = cc.find("Canvas")?.ui_transform.contentSize;
 		let offset_v2 = cc.v2(0, 0);
-		let corners = [...this._img_temp_pos_mat.data32F].map(
-			(v_n, k_n) => v_n + (k_n & 1 ? offset_v2.y : offset_v2.x)
-		);
+		let width_n = this._img_temp.img.cols;
+		let height_n = this._img_temp.img.rows;
+		/** 转换到 cocos 坐标系 */
+		let corners = [...this._img_temp_pos_mat.data32F].map((v_n, k_n) => {
+			return k_n & 1 ? height_n - v_n : v_n;
+		});
 		this._graphics.clear();
 		this._graphics.moveTo(corners[0], corners[1]);
 		this._graphics.lineTo(corners[2], corners[3]);
@@ -555,7 +588,7 @@ class tool_camera_positioning {
 		src_mat.data32F.set(this._img_temp_match_point_ns);
 		dst_mat.data32F.set(this._img_match_point_ns);
 
-		this._homography = cv.findHomography(src_mat, dst_mat, cv.RANSAC);
+		this._homography = cv.findHomography(dst_mat, src_mat, cv.RANSAC);
 	}
 
 	/** 更新匹配结果 */

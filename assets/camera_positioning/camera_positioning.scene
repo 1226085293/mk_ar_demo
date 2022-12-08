@@ -154,7 +154,7 @@
     "_priority": 1073741824,
     "_fov": 45,
     "_fovAxis": 0,
-    "_orthoHeight": 320,
+    "_orthoHeight": 328.1146637265711,
     "_near": 0,
     "_far": 2000,
     "_color": {
@@ -2720,10 +2720,7 @@
     },
     "_enabled": true,
     "__prefab": null,
-    "test_video": {
-      "__uuid__": "4d73f48f-f023-463c-a304-d1a644a9eb5d",
-      "__expectedType__": "cc.VideoClip"
-    },
+    "test_video": null,
     "_id": "5bpIz57xBL3I31CUHn+ZUf"
   },
   {
@@ -2782,8 +2779,8 @@
     "_prefab": null,
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": 0,
-      "y": 0,
+      "x": -480,
+      "y": -320,
       "z": 0
     },
     "_lrot": {
@@ -2824,8 +2821,8 @@
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
-      "x": 0.5,
-      "y": 0.5
+      "x": 0,
+      "y": 0
     },
     "_id": "banKarmbdO2qFfsGpNpdAR"
   },
@@ -2848,7 +2845,7 @@
       "b": 255,
       "a": 255
     },
-    "_lineWidth": 10,
+    "_lineWidth": 2,
     "_strokeColor": {
       "__type__": "cc.Color",
       "r": 0,

@@ -5,7 +5,7 @@
             "label": "Cocos Creator compile",
             "command": "curl",
             "args": [
-                "http://localhost:7457/asset-db/refresh"
+                "http://localhost:7456/asset-db/refresh"
             ],
             "type": "shell",
             "isBackground": true,
