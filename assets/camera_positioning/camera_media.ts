@@ -7,6 +7,9 @@ import safe_event from "../@framework/safe_event";
 const { ccclass, property } = _decorator;
 @ccclass("camera_media")
 export class camera_media extends Component {
+	/* --------------- 属性 --------------- */
+	@property({ displayName: "测试视频", type: cc.VideoClip })
+	test_video: cc.VideoClip = null!;
 	/* --------------- public --------------- */
 	event = new safe_event<camera_media_.event>();
 	/* --------------- private --------------- */
@@ -26,7 +29,7 @@ export class camera_media extends Component {
 	}
 	/* ------------------------------- 功能 ------------------------------- */
 	/** 初始化数据 */
-	private _init_data(): void {
+	private async _init_data(): Promise<void> {
 		this._sprite = this.node.sprite;
 		// Element
 		this._h5_canvas = document.createElement("canvas");
@@ -35,11 +38,44 @@ export class camera_media extends Component {
 		this._h5_video.setAttribute("autoplay", "");
 		this._h5_video.setAttribute("muted", "");
 		this._h5_video.setAttribute("playsinline", "");
-		// 输出尺寸
-		this._h5_canvas.width = this._h5_video.width = this.node.width;
-		this._h5_canvas.height = this._h5_video.height = this.node.height;
+		// 播放回调
+		this._h5_video.onplay = () => {
+			// SpriteFrame
+			this._sprite.spriteFrame = new cc.SpriteFrame();
+			this._update_camera_render();
+			// 更新摄像机纹理
+			this.schedule(this._update_camera_render, 1 / 60);
+
+			this._init_b = true;
+		};
+		// 播放测试视频
+		if (this.test_video) {
+			// 等待点击
+			this.node.children[0].active = true;
+			await new Promise<void>((resolve_f) => {
+				this.node.once(cc.Node.EventType.TOUCH_END, resolve_f, this);
+			});
+			this.node.children[0].active = false;
+			// 准备播放
+			this._h5_video.src = this.test_video.nativeUrl;
+			await new Promise<void>((resolve_f) => {
+				this._h5_video.oncanplay = () => {
+					resolve_f();
+				};
+			});
+			this._h5_video.oncanplay = null;
+			// 输出尺寸
+			this.node.width = this._h5_canvas.width = this._h5_video.videoWidth;
+			this.node.height = this._h5_canvas.height = this._h5_video.videoHeight;
+			// 开始播放
+			this._h5_video.play();
+			return;
+		}
 		// 摄像机媒体
 		{
+			// 输出尺寸
+			this._h5_canvas.width = this._h5_video.width = this.node.width;
+			this._h5_canvas.height = this._h5_video.height = this.node.height;
 			/** 纵横比 */
 			let aspect = this.node.width / this.node.height;
 			if (JSB) {
@@ -63,13 +99,6 @@ export class camera_media extends Component {
 				.then(async (stream) => {
 					this._h5_video.srcObject = stream;
 					this._h5_video.play();
-					// SpriteFrame
-					this._sprite.spriteFrame = new cc.SpriteFrame();
-					this._update_camera_render();
-					// 更新摄像机纹理
-					this.schedule(this._update_camera_render, 1 / 60);
-
-					this._init_b = true;
 				})
 				.catch((error) => {
 					console.error("相机初始化失败", error.code, error.message, error);
