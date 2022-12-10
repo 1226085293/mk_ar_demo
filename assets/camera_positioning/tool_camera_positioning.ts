@@ -144,7 +144,7 @@ class tool_camera_positioning {
 
 	/** 计算 */
 	calculate(img_: _tool_camera_positioning.img_t): void {
-		// this._track_status_b = false;
+		this._track_status_b = false;
 		// 光流
 		if (this._track_status_b) {
 			this._track(img_);
@@ -255,6 +255,17 @@ class tool_camera_positioning {
 
 			// 添加行 {0,0,1} 进行转换，使其成为 3x3
 			let temp = new cv.Mat(3, 3, cv.CV_64F);
+
+			let testMat3 = cc.Mat3.fromArray(new cc.Mat3(), [
+				...transform.data64F.slice(0),
+				0,
+				0,
+				1,
+			]);
+			let invertMat3 = cc.Mat3.invert(new cc.Mat3(), testMat3);
+
+			cc.Mat4.getRotation;
+
 			// temp.data64F.set([
 			// 	// 1
 			// 	transform.data64F[0],
@@ -279,7 +290,7 @@ class tool_camera_positioning {
 
 			// update homography matrix
 			let homographyCCMat3 = new cc.Mat3(...this._homography.data64F);
-			let transformCCMat3 = new cc.Mat3(...transform.data64F);
+			let transformCCMat3 = invertMat3; //new cc.Mat3(...transform.data64F);
 			homographyCCMat3 = homographyCCMat3.multiply(transformCCMat3);
 			this._homography.data64F.set(cc.Mat3.toArray([], homographyCCMat3));
 
@@ -421,6 +432,46 @@ class tool_camera_positioning {
 		this._graphics.lineTo(corners[0], corners[1]);
 		// this._graphics.close();
 		this._graphics.stroke();
+
+		let cube = cc.find("Camera3D/Cube")!;
+
+		let homographyCCMat4 = new cc.Mat4(
+			// 1
+			this._homography.doubleAt(0, 0),
+			this._homography.doubleAt(1, 0),
+			0,
+			this._homography.doubleAt(2, 0),
+			// 2
+			this._homography.doubleAt(0, 1),
+			this._homography.doubleAt(1, 1),
+			0,
+			this._homography.doubleAt(2, 1),
+			// 3
+			0,
+			0,
+			1,
+			0,
+			// 4
+			// this._homography.doubleAt(0, 2),
+			// this._homography.doubleAt(1, 2),
+			// 0,
+			// this._homography.doubleAt(2, 2)
+			cube.worldMatrix.m12,
+			cube.worldMatrix.m13,
+			cube.worldMatrix.m14,
+			cube.worldMatrix.m15
+		);
+		// cube.worldMatrix = homographyCCMat4;
+		// let transform = [h[0], h[3], 0, h[6], h[1], h[4], 0, h[7], 0, 0, 1, 0, h[2], h[5], 0, h[8]];
+
+		console.log(
+			"旋转",
+			homographyCCMat4.getRotation(cc.quat()).getEulerAngles(cc.v3()).toString()
+		);
+		console.log("平移", homographyCCMat4.getTranslation(cc.v3()).toString());
+		// console.log("缩放", homographyCCMat4.getScale(cc.v3()).toString());
+		cube.setRotation(homographyCCMat4.getRotation(cc.quat()));
+		// cube.setScale(homographyCCMat4.getScale(cc.v3()));
 		return;
 		// Normalization to ensure that ||c1|| = 1
 		let norm = Math.sqrt(
@@ -509,6 +560,7 @@ class tool_camera_positioning {
 		console.log("平移", transform.getTranslation(cc.v3()).toString());
 		console.log("缩放", transform.getScale(cc.v3()).toString());
 		console.log("------------------");
+		// 转为仿射变换 https://math.stackexchange.com/questions/296794/finding-the-transform-matrix-from-4-projected-points-with-javascript
 		transform = cc.mat4(
 			// 0
 			this._homography.doubleAt(0, 0),
