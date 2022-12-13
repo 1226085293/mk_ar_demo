@@ -144,7 +144,7 @@ class tool_camera_positioning {
 
 	/** 计算 */
 	calculate(img_: _tool_camera_positioning.img_t): void {
-		// this._track_status_b = false;
+		this._track_status_b = false;
 		// 光流
 		if (this._track_status_b) {
 			this._track(img_);
@@ -404,8 +404,8 @@ class tool_camera_positioning {
 		// https://docs.opencv.org/3.4/d9/dab/tutorial_homography.html
 		// https://visp-doc.inria.fr/doxygen/camera_localization/tutorial-pose-dlt-planar-opencv.html
 		cv.perspectiveTransform(this._img_pos_mat, this._img_temp_pos_mat, this._homography);
-
-		let canvas_size = cc.find("Canvas")?.ui_transform.contentSize;
+		let canvas = cc.find("Canvas")!;
+		let canvas_size = cc.find("Canvas")!.ui_transform.contentSize;
 		let offset_v2 = cc.v2(0, 0);
 		let width_n = this._img_temp.img.cols;
 		let height_n = this._img_temp.img.rows;
@@ -421,119 +421,6 @@ class tool_camera_positioning {
 		this._graphics.lineTo(corners[0], corners[1]);
 		// this._graphics.close();
 		this._graphics.stroke();
-		return;
-		// Normalization to ensure that ||c1|| = 1
-		let norm = Math.sqrt(
-			this._homography.doubleAt(0, 0) * this._homography.doubleAt(0, 0) +
-				this._homography.doubleAt(1, 0) * this._homography.doubleAt(1, 0) +
-				this._homography.doubleAt(2, 0) * this._homography.doubleAt(2, 0)
-		);
-
-		let homographyCCMat = new cc.Mat3(
-			// 1
-			this._homography.doubleAt(0, 0),
-			this._homography.doubleAt(1, 0),
-			this._homography.doubleAt(2, 0),
-			// 2
-			this._homography.doubleAt(0, 1),
-			this._homography.doubleAt(1, 1),
-			this._homography.doubleAt(2, 1),
-			// 3
-			this._homography.doubleAt(0, 2),
-			this._homography.doubleAt(1, 2),
-			this._homography.doubleAt(2, 2)
-		);
-		homographyCCMat.multiplyScalar(1 / norm);
-		let c1 = cc.v3(homographyCCMat.m00, homographyCCMat.m01, homographyCCMat.m02);
-		let c2 = cc.v3(homographyCCMat.m03, homographyCCMat.m04, homographyCCMat.m05);
-		let c3 = c1.clone().cross(c2);
-		// let c1 = this._homography.col(0);
-		// let c2 = this._homography.col(1);
-		// let c3 = c1.cross(c2);
-		let tvec = cc.v3(homographyCCMat.m06, homographyCCMat.m07, homographyCCMat.m08);
-		let R = new cv.Mat(3, 3, cv.CV_64F);
-		R.data64F.set([c1.x, c2.x, c3.x, c1.y, c2.y, c3.y, c1.z, c2.z, c3.z]);
-
-		let transform = cc.mat4(
-			// 0
-			c1.x,
-			c2.x,
-			c3.x,
-			0,
-			// 1
-			c1.y,
-			c2.y,
-			c3.y,
-			0,
-			// 2
-			c1.z,
-			c2.z,
-			c3.z,
-			0,
-			// 3
-			tvec.x,
-			tvec.y,
-			tvec.z,
-			1
-		);
-		// let transform = cc.mat4(
-		// 	// 0
-		// 	c1.x,
-		// 	c1.y,
-		// 	c1.z,
-		// 	0,
-		// 	// 1
-		// 	c2.x,
-		// 	c2.y,
-		// 	c2.z,
-		// 	0,
-		// 	// 2
-		// 	c3.x,
-		// 	c3.y,
-		// 	c3.z,
-		// 	0,
-		// 	// 3
-		// 	tvec.x,
-		// 	tvec.y,
-		// 	tvec.z,
-		// 	1
-		// );
-
-		// for (let i = 0; i < 3; i++) {
-		// R.doubleAt(i, 0) = c1.doubleAt(i, 0);
-		// R.doubleAt(i, 1) = c2.doubleAt(i, 0);
-		// R.doubleAt(i, 2) = c3.doubleAt(i, 0);
-		// }
-
-		console.log("旋转", transform.getRotation(cc.quat()).getEulerAngles(cc.v3()).toString());
-		console.log("平移", transform.getTranslation(cc.v3()).toString());
-		console.log("缩放", transform.getScale(cc.v3()).toString());
-		console.log("------------------");
-		transform = cc.mat4(
-			// 0
-			this._homography.doubleAt(0, 0),
-			this._homography.doubleAt(1, 0),
-			0,
-			this._homography.doubleAt(2, 0),
-			// 1
-			this._homography.doubleAt(0, 1),
-			this._homography.doubleAt(1, 1),
-			0,
-			this._homography.doubleAt(2, 1),
-			// 2
-			0,
-			0,
-			1,
-			0,
-			// 3
-			this._homography.doubleAt(0, 2),
-			this._homography.doubleAt(1, 2),
-			0,
-			this._homography.doubleAt(2, 2)
-		);
-		console.log("旋转", transform.getRotation(cc.quat()).getEulerAngles(cc.v3()).toString());
-		console.log("平移", transform.getTranslation(cc.v3()).toString());
-		console.log("缩放", transform.getScale(cc.v3()).toString());
 		// // 转换后点
 		// cc.log(this._img_temp_pos_mat.data32F);
 
