@@ -264,95 +264,15 @@ class tool_camera_positioning {
 			]);
 			let invertMat3 = cc.Mat3.invert(new cc.Mat3(), testMat3);
 
-			cc.Mat4.getRotation;
-
-			// temp.data64F.set([
-			// 	// 1
-			// 	transform.data64F[0],
-			// 	transform.data64F[1],
-			// 	0,
-			// 	// 2
-			// 	transform.data64F[3],
-			// 	transform.data64F[4],
-			// 	0,
-			// 	// 3
-			// 	transform.data64F[2],
-			// 	transform.data64F[5],
-			// 	1,
-			// ]);
 			temp.data64F.set([...transform.data64F.slice(0), 0, 0, 1]);
 			transform.delete();
 			transform = temp;
-
-			// this._homography.data64F.set(
-			// 	[...this._homography.data64F].map((v, k_n) => v * transform.data64F[k_n])
-			// );
 
 			// update homography matrix
 			let homographyCCMat3 = new cc.Mat3(...this._homography.data64F);
 			let transformCCMat3 = invertMat3; //new cc.Mat3(...transform.data64F);
 			homographyCCMat3 = homographyCCMat3.multiply(transformCCMat3);
 			this._homography.data64F.set(cc.Mat3.toArray([], homographyCCMat3));
-
-			// let transform22 = cc.mat4(
-			// 	// 0
-			// 	this._homography.doubleAt(0, 0),
-			// 	this._homography.doubleAt(1, 0),
-			// 	0,
-			// 	this._homography.doubleAt(2, 0),
-			// 	// 1
-			// 	this._homography.doubleAt(0, 1),
-			// 	this._homography.doubleAt(1, 1),
-			// 	0,
-			// 	this._homography.doubleAt(2, 1),
-			// 	// 2
-			// 	0,
-			// 	0,
-			// 	1,
-			// 	0,
-			// 	// 3
-			// 	this._homography.doubleAt(0, 2),
-			// 	this._homography.doubleAt(1, 2),
-			// 	0,
-			// 	this._homography.doubleAt(2, 2)
-			// );
-
-			// console.log(
-			// 	"旋转",
-			// 	transform22.getRotation(cc.quat()).getEulerAngles(cc.v3()).toString()
-			// );
-			// console.log("平移", transform22.getTranslation(cc.v3()).toString());
-			// console.log("缩放", transform22.getScale(cc.v3()).toString());
-
-			// transform22 = cc.mat4(
-			// 	// 0
-			// 	this._homography.doubleAt(0, 0),
-			// 	this._homography.doubleAt(1, 0),
-			// 	0,
-			// 	this._homography.doubleAt(2, 0),
-			// 	// 1
-			// 	this._homography.doubleAt(0, 1),
-			// 	this._homography.doubleAt(1, 1),
-			// 	0,
-			// 	this._homography.doubleAt(2, 1),
-			// 	// 2
-			// 	0,
-			// 	0,
-			// 	1,
-			// 	0,
-			// 	// 3
-			// 	this._homography.doubleAt(0, 2),
-			// 	this._homography.doubleAt(1, 2),
-			// 	0,
-			// 	this._homography.doubleAt(2, 2)
-			// );
-
-			// console.log(
-			// 	"旋转",
-			// 	transform22.getRotation(cc.quat()).getEulerAngles(cc.v3()).toString()
-			// );
-			// console.log("平移", transform22.getTranslation(cc.v3()).toString());
-			// console.log("缩放", transform22.getScale(cc.v3()).toString());
 
 			// set old points to new points
 			this._img_match_point_ns = [...goodPtsCurr.data32F]; // framePts = goodPtsCurr;

@@ -99,7 +99,7 @@ export class alignment extends Component {
 				key_points2.size()
 			);
 			// 绘制关键点，y 向下需转换
-			if (false) {
+			if (true) {
 				/** 绘制间隔 */
 				let for_interval_n = 1;
 				// 参考图
@@ -176,7 +176,7 @@ export class alignment extends Component {
 			}
 			cc.log("match result2", match_result_filter.size());
 			// 绘制匹配结果
-			if (true) {
+			if (false) {
 				// queryIdx: 参考图描述符下标
 				// trainIdx: 对齐图描述符下标
 				this.graphics.moveTo(
