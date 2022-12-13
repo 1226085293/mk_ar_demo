@@ -255,6 +255,17 @@ class tool_camera_positioning {
 
 			// 添加行 {0,0,1} 进行转换，使其成为 3x3
 			let temp = new cv.Mat(3, 3, cv.CV_64F);
+
+			let testMat3 = cc.Mat3.fromArray(new cc.Mat3(), [
+				...transform.data64F.slice(0),
+				0,
+				0,
+				1,
+			]);
+			let invertMat3 = cc.Mat3.invert(new cc.Mat3(), testMat3);
+
+			cc.Mat4.getRotation;
+
 			// temp.data64F.set([
 			// 	// 1
 			// 	transform.data64F[0],
@@ -279,7 +290,7 @@ class tool_camera_positioning {
 
 			// update homography matrix
 			let homographyCCMat3 = new cc.Mat3(...this._homography.data64F);
-			let transformCCMat3 = new cc.Mat3(...transform.data64F);
+			let transformCCMat3 = invertMat3; //new cc.Mat3(...transform.data64F);
 			homographyCCMat3 = homographyCCMat3.multiply(transformCCMat3);
 			this._homography.data64F.set(cc.Mat3.toArray([], homographyCCMat3));
 
